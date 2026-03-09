@@ -28,6 +28,12 @@ int BPF_PROG(deny_netns_capable, const struct cred *cred,
         return ret;
     }
 
+    // check for uid first to reduce impact on system processes
+    const u32 uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+    if (uid < 1000) {
+        return 0;
+    }
+
     struct task_struct *task = bpf_get_current_task_btf();
     struct pt_regs *regs = (struct pt_regs *)bpf_task_pt_regs(task);
     const int syscall = BPF_CORE_READ(regs, orig_ax);
@@ -39,11 +45,6 @@ int BPF_PROG(deny_netns_capable, const struct cred *cred,
 
     const unsigned long flags = PT_REGS_PARM1_CORE_SYSCALL(regs);
     if (!(flags & CLONE_NEWNET)) {
-        return 0;
-    }
-
-    const u32 uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
-    if (uid < 1000) {
         return 0;
     }
 
