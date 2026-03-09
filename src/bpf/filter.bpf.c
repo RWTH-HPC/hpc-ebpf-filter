@@ -65,6 +65,7 @@ int BPF_PROG(deny_netns_capable, const struct cred *cred,
             event->syscall = SC_UNKNOWN;
             break;
         }
+        bpf_get_current_comm(&event->comm, sizeof(event->comm));
         bpf_ringbuf_submit(event, 0);
     }
 

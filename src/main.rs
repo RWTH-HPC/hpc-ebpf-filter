@@ -35,8 +35,11 @@ fn handle_event(data: &[u8]) -> i32 {
         Syscall::SC_UNKNOWN => "unknown",
     };
     info!(
-        "CLONE_NEWNET attempted: pid={} uid={} syscall={}",
-        event.pid, event.uid, syscall_name
+        "CLONE_NEWNET attempted: pid={} uid={} syscall={} comm={}",
+        event.pid,
+        event.uid,
+        syscall_name,
+        std::str::from_utf8(&event.comm).unwrap_or("unknown")
     );
     0
 }

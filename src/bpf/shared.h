@@ -17,4 +17,5 @@ struct Event {
     uint32_t pid;
     uint32_t uid;
     enum Syscall syscall;
+    unsigned char comm[TASK_COMM_LEN];
 };
