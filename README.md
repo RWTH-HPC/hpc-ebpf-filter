@@ -8,12 +8,12 @@ Lässt sich bei Bedarf granularer anpassen.
 
 # Nutzung
 
-`./hpc-ebpf-filter`
+`hpc-ebpf-filter`
 
 Ausführung braucht root oder alternativ CAP_BPF
 
-Der Filter ist nur aktiv, solange das Programm läuft!  
-Ließe sich bei Bedarf aber auch persistent implementieren.
+Der Filter bleibt aktiv, nachdem das Programm beendet wurde!  
+Kann mit `hpc-ebpf-filter --unpin` oder `rm -rf /sys/fs/bpf/hpc-ebpf-filter` deaktiviert werden.
 
 Versuche, einen network namespace anzulegen, werden geloggt.
 

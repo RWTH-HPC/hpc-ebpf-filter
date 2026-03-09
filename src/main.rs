@@ -4,6 +4,7 @@ use libbpf_rs::skel::{OpenSkel, Skel, SkelBuilder};
 use log::info;
 use std::mem::MaybeUninit;
 use std::os::fd::BorrowedFd;
+use std::path::Path;
 use tokio::io::{Interest, unix::AsyncFd};
 
 mod filter {
@@ -19,6 +20,9 @@ mod bindings {
 
 use bindings::*;
 use filter::*;
+
+const PIN_DIR: &str = "/sys/fs/bpf/hpc-ebpf-filter";
+const LINK_PIN_PATH: &str = "/sys/fs/bpf/hpc-ebpf-filter/deny_netns_capable";
 
 fn handle_event(data: &[u8]) -> i32 {
     if data.len() < std::mem::size_of::<Event>() {
@@ -44,10 +48,25 @@ fn handle_event(data: &[u8]) -> i32 {
     0
 }
 
+fn unpin() -> Result<()> {
+    let pin_dir = Path::new(PIN_DIR);
+    if pin_dir.exists() {
+        std::fs::remove_dir_all(pin_dir)?;
+        info!("eBPF program unpinned from {}", PIN_DIR);
+    } else {
+        info!("No pinned eBPF program found at {}", PIN_DIR);
+    }
+    Ok(())
+}
+
 #[tokio::main(flavor = "current_thread")]
 async fn main() -> Result<()> {
     let env = env_logger::Env::default().filter_or("RUST_LOG", "info");
     env_logger::init_from_env(env);
+
+    if std::env::args().any(|a| a == "--unpin") {
+        return unpin();
+    }
 
     let builder = FilterSkelBuilder::default();
 
@@ -64,9 +83,25 @@ async fn main() -> Result<()> {
         Interest::READABLE,
     )?;
 
+    // Attach the new program first so there is no coverage gap.
     skel.attach()?;
 
     info!("HPC eBPF filter attached");
+
+    // Now that the new program is active, atomically replace any existing pin.
+    let pin_dir = Path::new(PIN_DIR);
+    std::fs::create_dir(pin_dir)?;
+    if Path::new(LINK_PIN_PATH).exists() {
+        std::fs::remove_file(LINK_PIN_PATH)?;
+        info!("Previous pinned eBPF program at {} removed", LINK_PIN_PATH);
+    }
+    skel.links
+        .deny_netns_capable
+        .as_mut()
+        .unwrap()
+        .pin(LINK_PIN_PATH)?;
+
+    info!("HPC eBPF filter pinned to {}", LINK_PIN_PATH);
 
     let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
 
@@ -86,5 +121,9 @@ async fn main() -> Result<()> {
         }
     }
 
+    info!(
+        "Userspace exiting, eBPF program remains pinned at {}",
+        LINK_PIN_PATH
+    );
     Ok(())
 }
