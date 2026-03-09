@@ -132,7 +132,7 @@ fn generate_bindings(bpf_headers_dir: &PathBuf, out_dir: &PathBuf) {
         .derive_hash(true)
         .derive_partialeq(true)
         // Generate bindings for the types we care about
-        .allowlist_type("Syscakk")
+        .allowlist_type("Syscall")
         .rustified_enum("Syscall")
         .allowlist_type("Event")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
