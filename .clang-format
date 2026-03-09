@@ -1,0 +1,9 @@
+BasedOnStyle: LLVM
+IncludeBlocks: Regroup
+IndentWidth: 4
+TabWidth: 4
+AccessModifierOffset: -4
+
+InsertNewlineAtEOF: True
+QualifierAlignment: Custom
+QualifierOrder: ["friend", "constexpr", "static", "inline", "const", "type"]

@@ -1,0 +1,2 @@
+FormatStyle: "file"
+ExtraArgsBefore: ["-DCLANG_TIDY"]
