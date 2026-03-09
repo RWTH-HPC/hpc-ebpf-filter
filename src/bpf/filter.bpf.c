@@ -30,7 +30,7 @@ int BPF_PROG(deny_netns_capable, const struct cred *cred,
 
     struct task_struct *task = bpf_get_current_task_btf();
     struct pt_regs *regs = (struct pt_regs *)bpf_task_pt_regs(task);
-    const int syscall = regs->orig_ax;
+    const int syscall = BPF_CORE_READ(regs, orig_ax);
 
     if (syscall != __NR_unshare && syscall != __NR_clone &&
         syscall != __NR_clone3) {
