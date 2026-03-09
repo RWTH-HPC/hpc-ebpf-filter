@@ -68,9 +68,14 @@ async fn main() -> Result<()> {
 
     info!("HPC eBPF filter attached");
 
+    let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
+
     loop {
         tokio::select! {
             _ = tokio::signal::ctrl_c() => {
+                break;
+            }
+            _ = sigterm.recv() => {
                 break;
             }
             guard = async_fd.readable() => {
