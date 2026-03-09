@@ -90,11 +90,21 @@ async fn main() -> Result<()> {
 
     // Now that the new program is active, atomically replace any existing pin.
     let pin_dir = Path::new(PIN_DIR);
-    std::fs::create_dir(pin_dir)?;
-    if Path::new(LINK_PIN_PATH).exists() {
-        std::fs::remove_file(LINK_PIN_PATH)?;
-        info!("Previous pinned eBPF program at {} removed", LINK_PIN_PATH);
+    if pin_dir.exists() {
+        for entry in std::fs::read_dir(pin_dir)? {
+            let entry = entry?;
+            if entry.file_type()?.is_file() {
+                std::fs::remove_file(entry.path())?;
+                info!(
+                    "Removed previously pinned eBPF program at {}",
+                    entry.path().display()
+                );
+            }
+        }
+    } else {
+        std::fs::create_dir(pin_dir)?;
     }
+
     skel.links
         .deny_netns_capable
         .as_mut()
@@ -122,8 +132,8 @@ async fn main() -> Result<()> {
     }
 
     info!(
-        "Userspace exiting, eBPF program remains pinned at {}",
-        LINK_PIN_PATH
+        "Userspace exiting, eBPF programs remain pinned at {}",
+        PIN_DIR
     );
     Ok(())
 }
