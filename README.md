@@ -30,9 +30,12 @@ Versuche, einen network namespace anzulegen, werden geloggt.
 - header für jene runtime dependencies
 - bpftool
 - libbpf
-- clang
+- clang mit bpf target
 - Rust >= 1.85.0
 
-Bauen via `cargo build --release`.  
+Anmerkung für's bauen auf dem cluster: clang aus dem Modulsystem hat das bpf target nicht aktiviert.  
+Man müsste sich also lokal per container behelfen, oder clang aus den repo-Quellen installieren.
+
+Bauen via `cargo build --release --locked`.  
 Die binary linkt dynamisch gegen obige runtime dependencies.  
 Statisch wäre bestimmt angenehmer, habe ich noch nicht nach geschaut.
