@@ -1,10 +1,11 @@
 # HPC eBPF filter
 
-Ein eBPF-Filterprogramm, um Nutzern das erstellen von network namespaces zu untersagen.
+Ein eBPF-Filterprogramm, um Nutzern das Erstellen von network namespaces zu untersagen.
 
-System-Prozesse (jener kleiner < 1000) werden nicht gefiltert.
+System-Prozesse (jene mit UID < 1000) werden nicht gefiltert.
 
-Lässt sich bei Bedarf granularer anpassen.
+Binaries können mit einer Allowlist davon ausgenommen werden.  
+Syntax ist ein absoluter Pfad pro Zeile, Kommentare mit `#`. Zu nutzen mit `--allowlist my_list.txt`
 
 # Nutzung
 

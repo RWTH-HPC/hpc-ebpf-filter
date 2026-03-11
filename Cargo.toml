@@ -6,6 +6,7 @@ license = "GPL-3.0-or-later"
 
 [dependencies]
 anyhow = "1.0.102"
+clap = { version = "4.5.60", features = ["derive"] }
 env_logger = "0.11.9"
 libbpf-rs = "0.26.1"
 libbpf-sys = "1.6.3"

@@ -360,6 +360,7 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "bindgen",
+ "clap",
  "env_logger",
  "libbpf-cargo",
  "libbpf-rs",

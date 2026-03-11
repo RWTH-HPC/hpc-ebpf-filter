@@ -1,10 +1,12 @@
 use anyhow::Result;
+use clap::Parser;
+use libbpf_rs::MapHandle;
 use libbpf_rs::RingBufferBuilder;
 use libbpf_rs::skel::{OpenSkel, Skel, SkelBuilder};
 use log::info;
 use std::mem::MaybeUninit;
 use std::os::fd::BorrowedFd;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use tokio::io::{Interest, unix::AsyncFd};
 
 mod filter {
@@ -17,12 +19,23 @@ mod bindings {
     #![allow(dead_code)]
     include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 }
+mod allowlist;
 
+use allowlist::{AllowlistWatcher, load_allowlist};
 use bindings::*;
 use filter::*;
 
 const PIN_DIR: &str = "/sys/fs/bpf/hpc-ebpf-filter";
 const LINK_PIN_PATH: &str = "/sys/fs/bpf/hpc-ebpf-filter/deny_netns_capable";
+
+#[derive(Debug, Parser)]
+struct Args {
+    #[arg(long)]
+    unpin: bool,
+
+    #[arg(long, value_name = "FILE")]
+    allowlist: Option<PathBuf>,
+}
 
 fn handle_event(data: &[u8]) -> i32 {
     if data.len() < std::mem::size_of::<Event>() {
@@ -43,7 +56,7 @@ fn handle_event(data: &[u8]) -> i32 {
         event.pid,
         event.uid,
         syscall_name,
-        std::str::from_utf8(&event.comm).unwrap_or("unknown")
+        std::str::from_utf8(&event.comm).unwrap_or("unknown"),
     );
     0
 }
@@ -64,9 +77,18 @@ async fn main() -> Result<()> {
     let env = env_logger::Env::default().filter_or("RUST_LOG", "info");
     env_logger::init_from_env(env);
 
-    if std::env::args().any(|a| a == "--unpin") {
+    let args = Args::parse();
+
+    if args.unpin {
         return unpin();
     }
+
+    let allowlist_file = args.allowlist;
+    let allowed_paths = if let Some(path) = allowlist_file {
+        load_allowlist(&path)?
+    } else {
+        Vec::new()
+    };
 
     let builder = FilterSkelBuilder::default();
 
@@ -82,6 +104,11 @@ async fn main() -> Result<()> {
         unsafe { BorrowedFd::borrow_raw(ringbuf.epoll_fd()) },
         Interest::READABLE,
     )?;
+
+    let map_handle = MapHandle::try_from(&skel.maps.ALLOWED_FILES)?;
+
+    // Initialize allowlist before enabling the filter.
+    let _allowlist = AllowlistWatcher::new(allowed_paths, map_handle);
 
     // Attach the new program first so there is no coverage gap.
     skel.attach()?;
