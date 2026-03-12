@@ -20,6 +20,7 @@ enum Operation : uint8_t {
     OP_NETLINK_SEND_NFLOG = 30,
     OP_NETLINK_SEND_XFRM = 31,
     OP_NETLINK_SEND_NETFILTER = 32,
+    OP_NETLINK_SEND_ROUTE_TC = 33,
 };
 
 struct Event {

@@ -3,7 +3,7 @@
 #define __BPF_TARGET_MISSING ""
 #endif
 
-#include "clone_defines.h"
+// #include "clone_defines.h"
 #include "iptables_defines.h"
 #include "netlink_defines.h"
 #include "shared.h"
@@ -74,6 +74,38 @@ static __noinline void log_event(enum Operation operation) {
     }
 }
 
+static __always_inline bool is_tc_operation(struct sk_buff *skb) {
+    void *head = BPF_CORE_READ(skb, head);
+    u32 len = BPF_CORE_READ(skb, len);
+    struct nlmsghdr nlh;
+
+    // sanity checks - the kernel does not verify that the message is
+    // well-formed until later
+    if (head == NULL || len < sizeof(nlh)) {
+        return true;
+    }
+    if (bpf_probe_read_kernel(&nlh, sizeof(nlh), head) != 0) {
+        return true;
+    }
+    if (nlh.nlmsg_len < sizeof(nlh) || nlh.nlmsg_len > len) {
+        return true;
+    }
+
+    switch (nlh.nlmsg_type) {
+    case RTM_NEWQDISC:
+    case RTM_DELQDISC:
+    case RTM_NEWTCLASS:
+    case RTM_DELTCLASS:
+    case RTM_NEWTFILTER:
+    case RTM_DELTFILTER:
+    case RTM_NEWACTION:
+    case RTM_DELACTION:
+        return true;
+    }
+
+    return false;
+}
+
 SEC("lsm/socket_setsockopt")
 int BPF_PROG(deny_iptables, struct socket *sock, int level, int optname) {
     const u32 uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
@@ -104,6 +136,12 @@ int BPF_PROG(deny_netlink_send, struct sock *sk, struct sk_buff *skb) {
     }
 
     switch (BPF_CORE_READ(sk, sk_protocol)) {
+    case NETLINK_ROUTE:
+        if (is_tc_operation(skb)) {
+            log_event(OP_NETLINK_SEND_ROUTE_TC);
+            return -EPERM;
+        }
+        break;
     case NETLINK_NFLOG:
         log_event(OP_NETLINK_SEND_NFLOG);
         return -EPERM;

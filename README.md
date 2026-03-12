@@ -9,7 +9,11 @@ System-Prozesse (jene mit UID < 1000) werden nicht gefiltert.
 Folgendes wird denied:
 
 - iptables socket-Operationen
-- netlink-Operationen für nftables, nflog und xfrm (ipsec)
+- netlink-Operationen für:
+  - nftables,
+  - nflog
+  - xfrm (ipsec)
+  - tc
 - Nutzung von AF_KEY (ipsec)
 - Nutzung von AF_PACKET und das veraltete AF_INET mit SOCK_PACKET
 
