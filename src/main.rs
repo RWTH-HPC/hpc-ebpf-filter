@@ -1,13 +1,12 @@
 use anyhow::Result;
 use clap::Parser;
-use libbpf_rs::MapHandle;
 use libbpf_rs::RingBufferBuilder;
 use libbpf_rs::skel::{OpenSkel, Skel, SkelBuilder};
 use log::info;
 use skel_links_pin_macro::pin_skel_links;
 use std::mem::MaybeUninit;
 use std::os::fd::BorrowedFd;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 use tokio::io::{Interest, unix::AsyncFd};
 
 mod filter {
@@ -20,9 +19,9 @@ mod bindings {
     #![allow(dead_code)]
     include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 }
-mod allowlist;
+//mod allowlist;
 
-use allowlist::{AllowlistWatcher, load_allowlist};
+//use allowlist::{AllowlistWatcher, load_allowlist};
 use bindings::*;
 use filter::*;
 
@@ -32,9 +31,8 @@ const PIN_DIR: &str = "/sys/fs/bpf/hpc-ebpf-filter";
 struct Args {
     #[arg(long)]
     unpin: bool,
-
-    #[arg(long, value_name = "FILE")]
-    allowlist: Option<PathBuf>,
+    //#[arg(long, value_name = "FILE")]
+    //allowlist: Option<PathBuf>,
 }
 
 fn handle_event(data: &[u8]) -> i32 {
@@ -77,12 +75,14 @@ async fn main() -> Result<()> {
         return unpin();
     }
 
+    /*
     let allowlist_file = args.allowlist;
     let allowed_paths = if let Some(path) = allowlist_file {
         load_allowlist(&path)?
     } else {
         Vec::new()
     };
+     */
 
     let builder = FilterSkelBuilder::default();
 
@@ -99,10 +99,11 @@ async fn main() -> Result<()> {
         Interest::READABLE,
     )?;
 
-    let map_handle = MapHandle::try_from(&skel.maps.ALLOWED_FILES)?;
-
+    /*
     // Initialize allowlist before enabling the filter.
+    let map_handle = MapHandle::try_from(&skel.maps.ALLOWED_FILES)?;
     let _allowlist = AllowlistWatcher::new(allowed_paths, map_handle);
+    */
 
     // Attach the new program first so there is no coverage gap.
     skel.attach()?;

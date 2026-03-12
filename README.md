@@ -12,15 +12,6 @@ Folgendes wird denied:
 - netlink-Operationen für nftables, nflog und xfrm (ipsec)
 - Nutzung von AF_PACKET
 
-## Network namespaces
-
-Das erstellen von network namespaces wird allgemein denied.
-
-Binaries können mit einer Allowlist davon ausgenommen werden.  
-Syntax ist ein absoluter Pfad pro Zeile, Kommentare mit `#`. Zu nutzen mit `--allowlist my_list.txt`
-
-Dies ist KEINE "Sicherheitsbarriere" - wenn ein Nutzer einen netns-erlaubten Prozess starten kann, kann er diesen auch beliebig ausnutzen (LD_PRELOAD, ptrace etc.) - das denien von netns dient also nur als Fliegenschutz gegen script kiddies.
-
 # Nutzung
 
 `hpc-ebpf-filter`
@@ -30,7 +21,7 @@ Ausführung braucht root oder alternativ CAP_BPF
 Der Filter bleibt aktiv, nachdem das Programm beendet wurde!  
 Kann mit `hpc-ebpf-filter --unpin` oder `rm -rf /sys/fs/bpf/hpc-ebpf-filter` deaktiviert werden.
 
-Versuche, einen network namespace anzulegen, werden geloggt.
+Jegliche denials werden geloggt.
 
 # Dependencies & Kompilieren
 

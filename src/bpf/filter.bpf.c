@@ -25,6 +25,7 @@ struct {
     __uint(max_entries, 4096);
 } EVENTS SEC(".maps");
 
+/*
 struct {
     __uint(type, BPF_MAP_TYPE_INODE_STORAGE);
     __type(key, u32);
@@ -32,9 +33,11 @@ struct {
     __uint(map_flags, BPF_F_NO_PREALLOC);
     __uint(max_entries, 0);
 } ALLOWED_FILES SEC(".maps");
+*/
 
 static __always_inline bool is_allowed_user(u32 uid) { return uid < 1000; }
 
+/*
 static __always_inline bool is_allowed_file(const struct file *file) {
     struct inode *inode = __builtin_preserve_access_index(file->f_inode);
     if (!inode) {
@@ -55,6 +58,7 @@ static __always_inline bool is_allowed_binary(struct task_struct *task) {
     bpf_put_file(exe);
     return allowed;
 }
+*/
 
 // this always ends with a denial, so don't bother inlining it
 static __noinline void log_event(enum Operation operation) {
@@ -143,6 +147,7 @@ int BPF_PROG(deny_socket_create, int family, int type, int protocol, int kern) {
     return 0;
 }
 
+/*
 SEC("lsm/capable")
 int BPF_PROG(deny_netns_capable, const struct cred *cred,
              struct user_namespace *ns, int cap, unsigned int opts, int ret) {
@@ -178,3 +183,4 @@ int BPF_PROG(deny_netns_capable, const struct cred *cred,
 
     return -EPERM;
 }
+*/
