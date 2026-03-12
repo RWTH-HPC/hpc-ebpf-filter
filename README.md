@@ -10,7 +10,8 @@ Folgendes wird denied:
 
 - iptables socket-Operationen
 - netlink-Operationen für nftables, nflog und xfrm (ipsec)
-- Nutzung von AF_PACKET
+- Nutzung von AF_KEY (ipsec)
+- Nutzung von AF_PACKET und das veraltete AF_INET mit SOCK_PACKET
 
 # Nutzung
 

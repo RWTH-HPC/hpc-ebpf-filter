@@ -62,7 +62,6 @@ static __always_inline bool is_allowed_binary(struct task_struct *task) {
 
 // this always ends with a denial, so don't bother inlining it
 static __noinline void log_event(enum Operation operation) {
-    struct task_struct *task = bpf_get_current_task_btf();
     const u32 uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
 
     struct Event *event = bpf_ringbuf_reserve(&EVENTS, sizeof(struct Event), 0);
@@ -130,12 +129,17 @@ int BPF_PROG(deny_socket_create, int family, int type, int protocol, int kern) {
         return 0;
     }
 
-    if (family == AF_PACKET) {
-        log_event(OP_SOCKET_CREATE_AF_PACKET);
+    switch (family) {
+    case (AF_INET):
+        if (type == SOCK_PACKET) {
+            log_event(OP_SOCKET_CREATE_AF_INET_SOCK_PACKET);
+            return -EPERM;
+        }
+        break;
+    case (AF_KEY):
+        log_event(OP_SOCKET_CREATE_AF_KEY);
         return -EPERM;
-    }
-
-    if (family == AF_NETLINK) {
+    case (AF_NETLINK):
         switch (protocol) {
         case NETLINK_NFLOG:
             log_event(OP_SOCKET_CREATE_AF_NETLINK_NFLOG);
@@ -147,6 +151,10 @@ int BPF_PROG(deny_socket_create, int family, int type, int protocol, int kern) {
             log_event(OP_SOCKET_CREATE_AF_NETLINK_NETFILTER);
             return -EPERM;
         }
+        break;
+    case (AF_PACKET):
+        log_event(OP_SOCKET_CREATE_AF_PACKET);
+        return -EPERM;
     }
 
     return 0;

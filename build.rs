@@ -52,6 +52,8 @@ fn main() {
         "-I",
         bpf_headers_dir.to_str().unwrap(),
         "-mcpu=v3",
+        "-Wall",
+        "-Werror",
     ];
     generate_compile_commands(&extra_clang_args);
     generate_bindings(&bpf_headers_dir, &out_dir);
