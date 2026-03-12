@@ -60,6 +60,11 @@ fn main() {
     let mut skel_path = out_dir.clone();
     skel_path.push("filter.skel.rs");
 
+    println!(
+        "cargo:rustc-env=LIBBPF_RS_SKEL_PATH={}",
+        skel_path.display()
+    );
+
     SkeletonBuilder::new()
         .source(SRC)
         .clang_args(&extra_clang_args)

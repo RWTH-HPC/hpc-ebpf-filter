@@ -4,13 +4,17 @@
 #endif
 
 #include "clone_defines.h"
+#include "iptables_defines.h"
+#include "netlink_defines.h"
 #include "shared.h"
+#include "socket_defines.h"
 #include "vmlinux.h"
 
 #include <asm/unistd.h>
 #include <bpf/bpf_core_read.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
+#include <linux/errno.h>
 
 const char LICENSE[] SEC("license") = "GPL";
 
@@ -28,6 +32,8 @@ struct {
     __uint(map_flags, BPF_F_NO_PREALLOC);
     __uint(max_entries, 0);
 } ALLOWED_FILES SEC(".maps");
+
+static __always_inline bool is_allowed_user(u32 uid) { return uid < 1000; }
 
 static __always_inline bool is_allowed_file(const struct file *file) {
     struct inode *inode = __builtin_preserve_access_index(file->f_inode);
@@ -50,6 +56,63 @@ static __always_inline bool is_allowed_binary(struct task_struct *task) {
     return allowed;
 }
 
+SEC("lsm/socket_setsockopt")
+int BPF_PROG(deny_iptables, struct socket *sock, int level, int optname) {
+    const u32 uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+    if (is_allowed_user(uid)) {
+        return 0;
+    }
+
+    if (!((level == IPPROTO_IP || level == IPPROTO_IPV6) &&
+          // values for IPv4 and IPv6 are the same
+          (optname == IPT_SO_SET_REPLACE ||
+           optname == IPT_SO_SET_ADD_COUNTERS))) {
+        return 0;
+    }
+
+    return -EPERM;
+}
+
+SEC("lsm/netlink_send")
+int BPF_PROG(deny_netlink_send, struct sock *sk, struct sk_buff *skb) {
+    const u32 uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+    if (is_allowed_user(uid)) {
+        return 0;
+    }
+
+    switch (BPF_CORE_READ(sk, sk_protocol)) {
+    case NETLINK_NFLOG:
+    case NETLINK_XFRM:
+    case NETLINK_NETFILTER:
+        return -EPERM;
+    }
+
+    return 0;
+}
+
+SEC("lsm/socket_create")
+int BPF_PROG(deny_socket_create, int family, int type, int protocol, int kern) {
+    const u32 uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+    if (is_allowed_user(uid)) {
+        return 0;
+    }
+
+    if (family == AF_PACKET) {
+        return -EPERM;
+    }
+
+    if (family == AF_NETLINK) {
+        switch (protocol) {
+        case NETLINK_NFLOG:
+        case NETLINK_XFRM:
+        case NETLINK_NETFILTER:
+            return -EPERM;
+        }
+    }
+
+    return 0;
+}
+
 SEC("lsm/capable")
 int BPF_PROG(deny_netns_capable, const struct cred *cred,
              struct user_namespace *ns, int cap, unsigned int opts, int ret) {
@@ -59,7 +122,7 @@ int BPF_PROG(deny_netns_capable, const struct cred *cred,
 
     // check for uid first to reduce impact on system processes
     const u32 uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
-    if (uid < 1000) {
+    if (is_allowed_user(uid)) {
         return 0;
     }
 
@@ -103,5 +166,5 @@ int BPF_PROG(deny_netns_capable, const struct cred *cred,
         bpf_ringbuf_submit(event, 0);
     }
 
-    return -1;
+    return -EPERM;
 }

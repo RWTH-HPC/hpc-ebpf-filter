@@ -4,6 +4,7 @@ use libbpf_rs::MapHandle;
 use libbpf_rs::RingBufferBuilder;
 use libbpf_rs::skel::{OpenSkel, Skel, SkelBuilder};
 use log::info;
+use skel_links_pin_macro::pin_skel_links;
 use std::mem::MaybeUninit;
 use std::os::fd::BorrowedFd;
 use std::path::{Path, PathBuf};
@@ -26,7 +27,6 @@ use bindings::*;
 use filter::*;
 
 const PIN_DIR: &str = "/sys/fs/bpf/hpc-ebpf-filter";
-const LINK_PIN_PATH: &str = "/sys/fs/bpf/hpc-ebpf-filter/deny_netns_capable";
 
 #[derive(Debug, Parser)]
 struct Args {
@@ -132,13 +132,7 @@ async fn main() -> Result<()> {
         std::fs::create_dir(pin_dir)?;
     }
 
-    skel.links
-        .deny_netns_capable
-        .as_mut()
-        .unwrap()
-        .pin(LINK_PIN_PATH)?;
-
-    info!("HPC eBPF filter pinned to {}", LINK_PIN_PATH);
+    pin_skel_links!(FilterLinks, skel.links, pin_dir);
 
     let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
 
