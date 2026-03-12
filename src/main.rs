@@ -45,17 +45,11 @@ fn handle_event(data: &[u8]) -> i32 {
     // Event requires 4-byte alignment.
     // The length check above guarantees sufficient size.
     let event = unsafe { &*(data.as_ptr() as *const Event) };
-    let syscall_name = match event.syscall {
-        Syscall::UNSHARE => "unshare",
-        Syscall::CLONE => "clone",
-        Syscall::CLONE3 => "clone3",
-        Syscall::SC_UNKNOWN => "unknown",
-    };
     info!(
-        "CLONE_NEWNET attempted: pid={} uid={} syscall={} comm={}",
+        "operation denied: op={:?} pid={} uid={} comm={}",
+        event.operation,
         event.pid,
         event.uid,
-        syscall_name,
         std::str::from_utf8(&event.comm).unwrap_or("unknown"),
     );
     0

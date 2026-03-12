@@ -6,16 +6,23 @@
 #include "vmlinux.h" // IWYU pragma: keep
 #endif
 
-enum Syscall : uint8_t {
-    SC_UNKNOWN = 0,
-    UNSHARE = 1,
-    CLONE = 2,
-    CLONE3 = 3,
+enum Operation : uint8_t {
+    OP_CREATE_NETNS = 0,
+    OP_SOCKET_CREATE_AF_PACKET = 10,
+    OP_SOCKET_CREATE_AF_NETLINK = 11,
+    OP_SOCKET_CREATE_AF_NETLINK_NFLOG = 12,
+    OP_SOCKET_CREATE_AF_NETLINK_XFRM = 13,
+    OP_SOCKET_CREATE_AF_NETLINK_NETFILTER = 14,
+    OP_SETSOCKOPT_IPT_SO_SET_REPLACE = 20,
+    OP_SETSOCKOPT_IPT_SO_SET_ADD_COUNTERS = 21,
+    OP_NETLINK_SEND_NFLOG = 30,
+    OP_NETLINK_SEND_XFRM = 31,
+    OP_NETLINK_SEND_NETFILTER = 32,
 };
 
 struct Event {
     uint32_t pid;
     uint32_t uid;
-    enum Syscall syscall;
+    enum Operation operation;
     unsigned char comm[TASK_COMM_LEN];
 };

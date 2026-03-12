@@ -1,11 +1,25 @@
 # HPC eBPF filter
 
-Ein eBPF-Filterprogramm, um Nutzern das Erstellen von network namespaces zu untersagen.
+Ein eBPF-Filterprogramm, um Nutzern bestimmte kernel-Operationen zu untersagen.
 
 System-Prozesse (jene mit UID < 1000) werden nicht gefiltert.
 
+## iptables, nftables, sonstiges socket-Zeugs.
+
+Folgendes wird denied:
+
+- iptables socket-Operationen
+- netlink-Operationen für nftables, nflog und xfrm (ipsec)
+- Nutzung von AF_PACKET
+
+## Network namespaces
+
+Das erstellen von network namespaces wird allgemein denied.
+
 Binaries können mit einer Allowlist davon ausgenommen werden.  
 Syntax ist ein absoluter Pfad pro Zeile, Kommentare mit `#`. Zu nutzen mit `--allowlist my_list.txt`
+
+Dies ist KEINE "Sicherheitsbarriere" - wenn ein Nutzer einen netns-erlaubten Prozess starten kann, kann er diesen auch beliebig ausnutzen (LD_PRELOAD, ptrace etc.) - das denien von netns dient also nur als Fliegenschutz gegen script kiddies.
 
 # Nutzung
 

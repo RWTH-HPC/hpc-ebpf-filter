@@ -56,6 +56,21 @@ static __always_inline bool is_allowed_binary(struct task_struct *task) {
     return allowed;
 }
 
+// this always ends with a denial, so don't bother inlining it
+static __noinline void log_event(enum Operation operation) {
+    struct task_struct *task = bpf_get_current_task_btf();
+    const u32 uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+
+    struct Event *event = bpf_ringbuf_reserve(&EVENTS, sizeof(struct Event), 0);
+    if (event != NULL) {
+        event->pid = bpf_get_current_pid_tgid() >> 32;
+        event->uid = uid;
+        event->operation = operation;
+        bpf_get_current_comm(&event->comm, sizeof(event->comm));
+        bpf_ringbuf_submit(event, 0);
+    }
+}
+
 SEC("lsm/socket_setsockopt")
 int BPF_PROG(deny_iptables, struct socket *sock, int level, int optname) {
     const u32 uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
@@ -63,14 +78,19 @@ int BPF_PROG(deny_iptables, struct socket *sock, int level, int optname) {
         return 0;
     }
 
-    if (!((level == IPPROTO_IP || level == IPPROTO_IPV6) &&
-          // values for IPv4 and IPv6 are the same
-          (optname == IPT_SO_SET_REPLACE ||
-           optname == IPT_SO_SET_ADD_COUNTERS))) {
-        return 0;
+    if (level == IPPROTO_IP || level == IPPROTO_IPV6) {
+        // values for IPv4 and IPv6 are the same
+        switch (optname) {
+        case IPT_SO_SET_REPLACE:
+            log_event(OP_SETSOCKOPT_IPT_SO_SET_REPLACE);
+            return -EPERM;
+        case IPT_SO_SET_ADD_COUNTERS:
+            log_event(OP_SETSOCKOPT_IPT_SO_SET_ADD_COUNTERS);
+            return -EPERM;
+        }
     }
 
-    return -EPERM;
+    return 0;
 }
 
 SEC("lsm/netlink_send")
@@ -82,8 +102,13 @@ int BPF_PROG(deny_netlink_send, struct sock *sk, struct sk_buff *skb) {
 
     switch (BPF_CORE_READ(sk, sk_protocol)) {
     case NETLINK_NFLOG:
+        log_event(OP_NETLINK_SEND_NFLOG);
+        return -EPERM;
     case NETLINK_XFRM:
+        log_event(OP_NETLINK_SEND_XFRM);
+        return -EPERM;
     case NETLINK_NETFILTER:
+        log_event(OP_NETLINK_SEND_NETFILTER);
         return -EPERM;
     }
 
@@ -104,8 +129,13 @@ int BPF_PROG(deny_socket_create, int family, int type, int protocol, int kern) {
     if (family == AF_NETLINK) {
         switch (protocol) {
         case NETLINK_NFLOG:
+            log_event(OP_SOCKET_CREATE_AF_NETLINK_NFLOG);
+            return -EPERM;
         case NETLINK_XFRM:
+            log_event(OP_SOCKET_CREATE_AF_NETLINK_XFRM);
+            return -EPERM;
         case NETLINK_NETFILTER:
+            log_event(OP_SOCKET_CREATE_AF_NETLINK_NETFILTER);
             return -EPERM;
         }
     }
@@ -144,27 +174,7 @@ int BPF_PROG(deny_netns_capable, const struct cred *cred,
         return 0;
     }
 
-    struct Event *event = bpf_ringbuf_reserve(&EVENTS, sizeof(struct Event), 0);
-    if (event != NULL) {
-        event->pid = bpf_get_current_pid_tgid() >> 32;
-        event->uid = uid;
-        switch (syscall) {
-        case __NR_unshare:
-            event->syscall = UNSHARE;
-            break;
-        case __NR_clone:
-            event->syscall = CLONE;
-            break;
-        case __NR_clone3:
-            event->syscall = CLONE3;
-            break;
-        default:
-            event->syscall = SC_UNKNOWN;
-            break;
-        }
-        bpf_get_current_comm(&event->comm, sizeof(event->comm));
-        bpf_ringbuf_submit(event, 0);
-    }
+    log_event(OP_CREATE_NETNS);
 
     return -EPERM;
 }
