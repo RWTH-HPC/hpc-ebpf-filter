@@ -7,7 +7,6 @@ ExecStart=hpc-ebpf-filter
 Restart=on-failure
 
 IPAddressDeny=any
-PrivateNetwork=yes
 
 ProtectSystem=strict
 
