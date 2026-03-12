@@ -127,22 +127,26 @@ int BPF_PROG(deny_socket_create, int family, int type, int protocol, int kern) {
     }
 
     if (family == AF_PACKET) {
+        log_event(OP_SOCKET_CREATE_AF_PACKET);
         return -EPERM;
     }
 
+    // just invoking unshare(CLONE_NEWNET) seems to trigger these?!?
+    /*
     if (family == AF_NETLINK) {
         switch (protocol) {
         case NETLINK_NFLOG:
             log_event(OP_SOCKET_CREATE_AF_NETLINK_NFLOG);
             return -EPERM;
-        case NETLINK_XFRM:
-            log_event(OP_SOCKET_CREATE_AF_NETLINK_XFRM);
-            return -EPERM;
+         case NETLINK_XFRM:
+             log_event(OP_SOCKET_CREATE_AF_NETLINK_XFRM);
+             return -EPERM;
         case NETLINK_NETFILTER:
             log_event(OP_SOCKET_CREATE_AF_NETLINK_NETFILTER);
             return -EPERM;
         }
     }
+    */
 
     return 0;
 }
