@@ -131,22 +131,40 @@ int BPF_PROG(deny_socket_create, int family, int type, int protocol, int kern) {
         return -EPERM;
     }
 
-    // just invoking unshare(CLONE_NEWNET) seems to trigger these?!?
-    /*
     if (family == AF_NETLINK) {
+        bool denied = false;
+        enum Operation op;
         switch (protocol) {
         case NETLINK_NFLOG:
-            log_event(OP_SOCKET_CREATE_AF_NETLINK_NFLOG);
-            return -EPERM;
-         case NETLINK_XFRM:
-             log_event(OP_SOCKET_CREATE_AF_NETLINK_XFRM);
-             return -EPERM;
+            denied = true;
+            op = OP_SOCKET_CREATE_AF_NETLINK_NFLOG;
+            break;
+        case NETLINK_XFRM:
+            denied = true;
+            op = OP_SOCKET_CREATE_AF_NETLINK_XFRM;
+            break;
         case NETLINK_NETFILTER:
-            log_event(OP_SOCKET_CREATE_AF_NETLINK_NETFILTER);
-            return -EPERM;
+            denied = true;
+            op = OP_SOCKET_CREATE_AF_NETLINK_NETFILTER;
+            break;
+        }
+        if (denied) {
+            // just invoking unshare(CLONE_NEWNET) seems to trigger sock_create
+            // with xfrm and netfilter?!?
+            // Allow it for these syscalls. We don't lose protection either way
+            // since netlink_send is still denied unconditionally.
+
+            struct task_struct *task = bpf_get_current_task_btf();
+            struct pt_regs *regs = (struct pt_regs *)bpf_task_pt_regs(task);
+            const int syscall = BPF_CORE_READ(regs, orig_ax);
+
+            if (syscall != __NR_unshare && syscall != __NR_clone &&
+                syscall != __NR_clone3) {
+                log_event(op);
+                return -EPERM;
+            }
         }
     }
-    */
 
     return 0;
 }
