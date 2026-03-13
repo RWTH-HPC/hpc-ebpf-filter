@@ -7,7 +7,6 @@
 #endif
 
 enum Operation : uint8_t {
-    OP_CREATE_NETNS = 0,
     OP_SOCKET_CREATE_AF_PACKET = 10,
     OP_SOCKET_CREATE_AF_NETLINK = 11,
     OP_SOCKET_CREATE_AF_NETLINK_NFLOG = 12,

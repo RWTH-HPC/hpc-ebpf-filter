@@ -19,9 +19,7 @@ mod bindings {
     #![allow(dead_code)]
     include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
 }
-//mod allowlist;
 
-//use allowlist::{AllowlistWatcher, load_allowlist};
 use bindings::*;
 use filter::*;
 
@@ -75,15 +73,6 @@ async fn main() -> Result<()> {
         return unpin();
     }
 
-    /*
-    let allowlist_file = args.allowlist;
-    let allowed_paths = if let Some(path) = allowlist_file {
-        load_allowlist(&path)?
-    } else {
-        Vec::new()
-    };
-     */
-
     let builder = FilterSkelBuilder::default();
 
     let mut open_object = MaybeUninit::uninit();
@@ -98,12 +87,6 @@ async fn main() -> Result<()> {
         unsafe { BorrowedFd::borrow_raw(ringbuf.epoll_fd()) },
         Interest::READABLE,
     )?;
-
-    /*
-    // Initialize allowlist before enabling the filter.
-    let map_handle = MapHandle::try_from(&skel.maps.ALLOWED_FILES)?;
-    let _allowlist = AllowlistWatcher::new(allowed_paths, map_handle);
-    */
 
     // Attach the new program first so there is no coverage gap.
     skel.attach()?;
