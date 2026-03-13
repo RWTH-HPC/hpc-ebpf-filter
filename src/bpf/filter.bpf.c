@@ -43,6 +43,8 @@ static __noinline void log_event(enum Operation operation) {
 static __always_inline bool is_tc_operation(struct sk_buff *skb) {
     void *head = BPF_CORE_READ(skb, head);
     u32 len = BPF_CORE_READ(skb, len);
+    // nlmsghdr is a UAPI type, so we can assume the layout never changes
+    // and don't need to use CO_RE to retrieve members
     struct nlmsghdr nlh;
 
     // sanity checks - the kernel does not verify that the message is
