@@ -10,7 +10,6 @@
 #include "vmlinux.h"
 
 #include <asm/unistd.h>
-#include <bpf/bpf_core_read.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
 #include <linux/errno.h>
@@ -41,8 +40,8 @@ static __noinline void log_event(enum Operation operation) {
 }
 
 static __always_inline bool is_tc_operation(struct sk_buff *skb) {
-    void *head = BPF_CORE_READ(skb, head);
-    u32 len = BPF_CORE_READ(skb, len);
+    const void *const head = skb->head;
+    const u32 len = skb->len;
     // nlmsghdr is a UAPI type, so we can assume the layout never changes
     // and don't need to use CO_RE to retrieve members
     struct nlmsghdr nlh;
@@ -106,7 +105,7 @@ int BPF_PROG(deny_netlink_send, struct sock *sk, struct sk_buff *skb) {
         return 0;
     }
 
-    switch (BPF_CORE_READ(sk, sk_protocol)) {
+    switch (sk->sk_protocol) {
     case NETLINK_ROUTE:
         if (is_tc_operation(skb)) {
             log_event(OP_NETLINK_SEND_ROUTE_TC);
