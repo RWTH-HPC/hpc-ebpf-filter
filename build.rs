@@ -49,7 +49,7 @@ fn main() {
         // generated vmlinux.h is incompatible with C23 native bool as of 2026 :(
         "-std=gnu17",
         "-Wno-c23-extensions",
-        "-I",
+        "-isystem",
         bpf_headers_dir.to_str().unwrap(),
         "-mcpu=v3",
         "-Wall",
@@ -131,7 +131,7 @@ fn generate_bindings(bpf_headers_dir: &PathBuf, out_dir: &PathBuf) {
         .header(header_path.to_str().unwrap())
         .clang_args(["-target", "bpf"])
         // Add the bpf_headers directory to the include path
-        .clang_arg(format!("-I{}", bpf_headers_dir.to_str().unwrap()))
+        .clang_args(["-isystem", bpf_headers_dir.to_str().unwrap()])
         // Derive useful traits
         .derive_debug(true)
         .derive_default(true)
