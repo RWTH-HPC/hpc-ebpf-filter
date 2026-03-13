@@ -81,6 +81,9 @@ int BPF_PROG(deny_iptables, struct socket *sock, int level, int optname) {
         return 0;
     }
 
+    // POSIX does not define a "not allowed" failure mode for setsockopt,
+    // so use EPERM
+
     if (level == IPPROTO_IP || level == IPPROTO_IPV6) {
         // values for IPv4 and IPv6 are the same
         switch (optname) {
@@ -107,18 +110,18 @@ int BPF_PROG(deny_netlink_send, struct sock *sk, struct sk_buff *skb) {
     case NETLINK_ROUTE:
         if (is_tc_operation(skb)) {
             log_event(OP_NETLINK_SEND_ROUTE_TC);
-            return -EPERM;
+            return -EACCES;
         }
         break;
     case NETLINK_NFLOG:
         log_event(OP_NETLINK_SEND_NFLOG);
-        return -EPERM;
+        return -EACCES;
     case NETLINK_XFRM:
         log_event(OP_NETLINK_SEND_XFRM);
-        return -EPERM;
+        return -EACCES;
     case NETLINK_NETFILTER:
         log_event(OP_NETLINK_SEND_NETFILTER);
-        return -EPERM;
+        return -EACCES;
     }
 
     return 0;
@@ -139,28 +142,28 @@ int BPF_PROG(deny_socket_create, int family, int type, int protocol, int kern) {
     case (AF_INET):
         if (type == SOCK_PACKET) {
             log_event(OP_SOCKET_CREATE_AF_INET_SOCK_PACKET);
-            return -EPERM;
+            return -EACCES;
         }
         break;
     case (AF_KEY):
         log_event(OP_SOCKET_CREATE_AF_KEY);
-        return -EPERM;
+        return -EACCES;
     case (AF_NETLINK):
         switch (protocol) {
         case NETLINK_NFLOG:
             log_event(OP_SOCKET_CREATE_AF_NETLINK_NFLOG);
-            return -EPERM;
+            return -EACCES;
         case NETLINK_XFRM:
             log_event(OP_SOCKET_CREATE_AF_NETLINK_XFRM);
-            return -EPERM;
+            return -EACCES;
         case NETLINK_NETFILTER:
             log_event(OP_SOCKET_CREATE_AF_NETLINK_NETFILTER);
-            return -EPERM;
+            return -EACCES;
         }
         break;
     case (AF_PACKET):
         log_event(OP_SOCKET_CREATE_AF_PACKET);
-        return -EPERM;
+        return -EACCES;
     }
 
     return 0;
