@@ -12,47 +12,39 @@ impl Display for Event {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         write!(f, "op={:?}", self.operation)?;
 
-        unsafe {
-            match self.operation {
-                Operation::SOCKET_CREATE => {
-                    let family = self.operation_details.socket_create.family;
-                    write!(f, " family={:?}", family)?;
+        match self.operation {
+            Operation::SOCKET_CREATE => {
+                let socket_create = unsafe { self.operation_details.socket_create };
+                let family = socket_create.family;
+                write!(f, " family={:?}", family)?;
 
-                    if let Some(sock_type) =
-                        sock_type::from_repr(self.operation_details.socket_create.type_ as u32)
+                if let Some(sock_type) = sock_type::from_repr(socket_create.type_ as u32) {
+                    write!(f, " type={:?}", sock_type)?;
+                } else {
+                    write!(f, " type=unknown")?;
+                }
+
+                if family == AddressFamily::AF_NETLINK {
+                    let netlink_family = unsafe { socket_create.protocol.netlink_family };
+                    write!(f, " protocol={:?}", netlink_family)?;
+                }
+            }
+            Operation::SETSOCKOPT => {
+                let setsockopt = unsafe { self.operation_details.setsockopt };
+                write!(f, " optname={:?}", setsockopt.optname)?;
+            }
+            Operation::NETLINK_SEND => {
+                let netlink_send = unsafe { self.operation_details.netlink_send };
+                let family = netlink_send.family;
+
+                write!(f, " family={:?}", family)?;
+                if family == NetlinkFamily::NETLINK_ROUTE {
+                    if let Some(message_type) =
+                        RtnetlinkMessageType::from_repr(netlink_send.message_type)
                     {
-                        write!(f, " type={:?}", sock_type)?;
+                        write!(f, " type={:?}", message_type)?;
                     } else {
                         write!(f, " type=unknown")?;
-                    }
-
-                    if family == AddressFamily::AF_NETLINK {
-                        write!(
-                            f,
-                            " protocol={:?}",
-                            self.operation_details.socket_create.protocol.netlink_family
-                        )?;
-                    }
-                }
-                Operation::SETSOCKOPT => {
-                    write!(
-                        f,
-                        " optname={:?}",
-                        self.operation_details.setsockopt.optname
-                    )?;
-                }
-                Operation::NETLINK_SEND => {
-                    let family = self.operation_details.netlink_send.family;
-
-                    write!(f, " family={:?}", family)?;
-                    if family == NetlinkFamily::NETLINK_ROUTE {
-                        if let Some(message_type) = RtnetlinkMessageType::from_repr(
-                            self.operation_details.netlink_send.message_type,
-                        ) {
-                            write!(f, " type={:?}", message_type)?;
-                        } else {
-                            write!(f, " type=unknown")?;
-                        }
                     }
                 }
             }
