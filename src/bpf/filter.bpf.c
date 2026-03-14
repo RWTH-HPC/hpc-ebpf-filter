@@ -26,39 +26,41 @@ struct {
 static __always_inline bool is_allowed_user(u32 uid) { return uid < 1000; }
 
 // this always ends with a denial, so don't bother inlining it
-static __noinline void log_event(enum Operation operation) {
-    const u32 uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
-
+static __noinline void log_event(u32 uid, enum Operation operation,
+                                 union OperationDetails details) {
     struct Event *event = bpf_ringbuf_reserve(&EVENTS, sizeof(struct Event), 0);
     if (event != NULL) {
         event->pid = bpf_get_current_pid_tgid() >> 32;
         event->uid = uid;
         event->operation = operation;
+        event->operation_details = details;
         bpf_get_current_comm(&event->comm, sizeof(event->comm));
         bpf_ringbuf_submit(event, 0);
     }
 }
 
-static __always_inline bool is_tc_operation(struct sk_buff *skb) {
+static __always_inline u16 get_netlink_message_type(struct sk_buff *skb) {
     const void *const head = skb->head;
     const u32 len = skb->len;
     // nlmsghdr is a UAPI type, so we can assume the layout never changes
     // and don't need to use CO_RE to retrieve members
     struct nlmsghdr nlh;
 
-    // sanity checks - the kernel does not verify that the message is
-    // well-formed until later
     if (head == NULL || len < sizeof(nlh)) {
-        return true;
+        return 0;
     }
     if (bpf_probe_read_kernel(&nlh, sizeof(nlh), head) != 0) {
-        return true;
+        return 0;
     }
     if (nlh.nlmsg_len < sizeof(nlh) || nlh.nlmsg_len > len) {
-        return true;
+        return 0;
     }
 
-    switch (nlh.nlmsg_type) {
+    return nlh.nlmsg_type;
+}
+
+static __always_inline bool is_tc_operation(u16 netlink_message_type) {
+    switch (netlink_message_type) {
     case RTM_NEWQDISC:
     case RTM_DELQDISC:
     case RTM_NEWTCLASS:
@@ -74,7 +76,7 @@ static __always_inline bool is_tc_operation(struct sk_buff *skb) {
 }
 
 SEC("lsm/socket_setsockopt")
-int BPF_PROG(deny_iptables, struct socket *sock, int level, int optname) {
+int BPF_PROG(deny_setsockopt, struct socket *sock, int level, int optname) {
     const u32 uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
     if (is_allowed_user(uid)) {
         return 0;
@@ -87,10 +89,11 @@ int BPF_PROG(deny_iptables, struct socket *sock, int level, int optname) {
         // values for IPv4 and IPv6 are the same
         switch (optname) {
         case IPT_SO_SET_REPLACE:
-            log_event(OP_SETSOCKOPT_IPT_SO_SET_REPLACE);
-            return -EPERM;
         case IPT_SO_SET_ADD_COUNTERS:
-            log_event(OP_SETSOCKOPT_IPT_SO_SET_ADD_COUNTERS);
+            log_event(uid, SETSOCKOPT,
+                      (union OperationDetails){
+                          .setsockopt.optname = optname,
+                      });
             return -EPERM;
         }
     }
@@ -105,21 +108,27 @@ int BPF_PROG(deny_netlink_send, struct sock *sk, struct sk_buff *skb) {
         return 0;
     }
 
+    u16 netlink_message_type = 0;
+
+    bool denied = false;
     switch (sk->sk_protocol) {
     case NETLINK_ROUTE:
-        if (is_tc_operation(skb)) {
-            log_event(OP_NETLINK_SEND_ROUTE_TC);
-            return -EACCES;
+        netlink_message_type = get_netlink_message_type(skb);
+        if (is_tc_operation(netlink_message_type)) {
+            denied = true;
         }
         break;
     case NETLINK_NFLOG:
-        log_event(OP_NETLINK_SEND_NFLOG);
-        return -EACCES;
     case NETLINK_XFRM:
-        log_event(OP_NETLINK_SEND_XFRM);
-        return -EACCES;
     case NETLINK_NETFILTER:
-        log_event(OP_NETLINK_SEND_NETFILTER);
+        denied = true;
+    }
+
+    if (denied) {
+        log_event(uid, NETLINK_SEND,
+                  (union OperationDetails){
+                      .netlink_send.family = sk->sk_protocol,
+                      .netlink_send.message_type = netlink_message_type});
         return -EACCES;
     }
 
@@ -137,31 +146,32 @@ int BPF_PROG(deny_socket_create, int family, int type, int protocol, int kern) {
         return 0;
     }
 
+    bool denied = false;
     switch (family) {
     case (AF_INET):
         if (type == SOCK_PACKET) {
-            log_event(OP_SOCKET_CREATE_AF_INET_SOCK_PACKET);
-            return -EACCES;
+            denied = true;
         }
         break;
-    case (AF_KEY):
-        log_event(OP_SOCKET_CREATE_AF_KEY);
-        return -EACCES;
     case (AF_NETLINK):
         switch (protocol) {
         case NETLINK_NFLOG:
-            log_event(OP_SOCKET_CREATE_AF_NETLINK_NFLOG);
-            return -EACCES;
         case NETLINK_XFRM:
-            log_event(OP_SOCKET_CREATE_AF_NETLINK_XFRM);
-            return -EACCES;
         case NETLINK_NETFILTER:
-            log_event(OP_SOCKET_CREATE_AF_NETLINK_NETFILTER);
-            return -EACCES;
+            denied = true;
         }
         break;
+    case (AF_KEY):
     case (AF_PACKET):
-        log_event(OP_SOCKET_CREATE_AF_PACKET);
+        denied = true;
+    }
+
+    if (denied) {
+        log_event(uid, SOCKET_CREATE,
+                  (union OperationDetails){
+                      .socket_create = {.family = family,
+                                        .type = type,
+                                        .protocol = {protocol}}});
         return -EACCES;
     }
 

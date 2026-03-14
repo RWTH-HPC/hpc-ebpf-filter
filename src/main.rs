@@ -12,13 +12,7 @@ use tokio::io::{Interest, unix::AsyncFd};
 mod filter {
     include!(concat!(env!("OUT_DIR"), "/filter.skel.rs"));
 }
-mod bindings {
-    #![allow(non_upper_case_globals)]
-    #![allow(non_camel_case_types)]
-    #![allow(non_snake_case)]
-    #![allow(dead_code)]
-    include!(concat!(env!("OUT_DIR"), "/bindings.rs"));
-}
+mod bindings;
 
 use bindings::*;
 use filter::*;
@@ -41,13 +35,7 @@ fn handle_event(data: &[u8]) -> i32 {
     // Event requires 4-byte alignment.
     // The length check above guarantees sufficient size.
     let event = unsafe { &*(data.as_ptr() as *const Event) };
-    info!(
-        "operation denied: op={:?} pid={} uid={} comm={}",
-        event.operation,
-        event.pid,
-        event.uid,
-        std::str::from_utf8(&event.comm).unwrap_or("unknown"),
-    );
+    info!("operation denied: {}", event);
     0
 }
 

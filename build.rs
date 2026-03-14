@@ -1,8 +1,14 @@
+use bindgen::callbacks::{DeriveInfo, ParseCallbacks, TypeKind};
 use libbpf_cargo::SkeletonBuilder;
-use std::{env, fs, path::PathBuf, process::Command};
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+    process::Command,
+};
 
 const SRC: &str = "src/bpf/filter.bpf.c";
 const SHARED_HEADER: &str = "src/bpf/shared.h";
+const SHARED_NOBPF_HEADER: &str = "src/bpf/shared_nobpf.h";
 
 fn main() {
     let out_dir =
@@ -120,12 +126,24 @@ fn generate_compile_commands(extra_clang_args: &Vec<&str>) {
     );
 }
 
-fn generate_bindings(bpf_headers_dir: &PathBuf, out_dir: &PathBuf) {
+fn generate_bindings(bpf_headers_dir: &Path, out_dir: &Path) {
     let project_root = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
     let header_path = PathBuf::from(&project_root).join(SHARED_HEADER);
-    let bindings_path = out_dir.join("bindings.rs");
+    let header_nobpf_path = PathBuf::from(&project_root).join(SHARED_NOBPF_HEADER);
 
     println!("Generating Rust bindings from {:?}", header_path);
+
+    #[derive(Debug)]
+    struct BindgenCallbacks;
+
+    impl ParseCallbacks for BindgenCallbacks {
+        fn add_derives(&self, info: &DeriveInfo<'_>) -> Vec<String> {
+            match info.kind {
+                TypeKind::Enum => vec!["strum::FromRepr".into()],
+                _ => Vec::new(),
+            }
+        }
+    }
 
     let bindings = bindgen::Builder::default()
         .header(header_path.to_str().unwrap())
@@ -138,17 +156,47 @@ fn generate_bindings(bpf_headers_dir: &PathBuf, out_dir: &PathBuf) {
         .derive_eq(true)
         .derive_hash(true)
         .derive_partialeq(true)
+        .allowlist_recursively(false)
         // Generate bindings for the types we care about
         .allowlist_type("Operation")
         .rustified_enum("Operation")
+        .allowlist_type("OperationDetails")
         .allowlist_type("Event")
+        .allowlist_type("AddressFamily")
+        .rustified_non_exhaustive_enum("AddressFamily")
+        .allowlist_type("sock_type")
+        .rustified_non_exhaustive_enum("sock_type")
+        .allowlist_type("NetlinkFamily")
+        .rustified_non_exhaustive_enum("NetlinkFamily")
+        .allowlist_type("IPTablesSockOpt")
+        .rustified_non_exhaustive_enum("IPTablesSockOpt")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+        .parse_callbacks(Box::new(BindgenCallbacks))
         .generate()
         .expect("Unable to generate bindings");
 
     bindings
-        .write_to_file(&bindings_path)
+        .write_to_file(out_dir.join("bindings.rs"))
         .expect("Couldn't write bindings!");
 
-    println!("Generated Rust bindings at {:?}", bindings_path);
+    let bindings_nobpf = bindgen::Builder::default()
+        .header(header_nobpf_path.to_str().unwrap())
+        // Derive useful traits
+        .derive_debug(true)
+        .derive_default(true)
+        .derive_eq(true)
+        .derive_hash(true)
+        .derive_partialeq(true)
+        .allowlist_recursively(false)
+        // Generate bindings for the types we care about
+        .allowlist_type("RtnetlinkMessageType")
+        .rustified_non_exhaustive_enum("RtnetlinkMessageType")
+        .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
+        .parse_callbacks(Box::new(BindgenCallbacks))
+        .generate()
+        .expect("Unable to generate no-BPF bindings");
+
+    bindings_nobpf
+        .write_to_file(out_dir.join("bindings_nobpf.rs"))
+        .expect("Couldn't write no-BPF bindings!");
 }

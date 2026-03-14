@@ -1,15 +1,12 @@
 #pragma once
 
+#include "shared_base.h" // IWYU pragma: keep
+
 // taken from <linux/netfilter_ipv4/ip_tables.h>
 
-#define IPT_BASE_CTL 64
+enum IPTablesSockOpt : uint8_t {
+    IPT_SO_SET_REPLACE = 64,
+    IPT_SO_SET_ADD_COUNTERS = 65,
 
-#define IPT_SO_SET_REPLACE (IPT_BASE_CTL)
-#define IPT_SO_SET_ADD_COUNTERS (IPT_BASE_CTL + 1)
-#define IPT_SO_SET_MAX IPT_SO_SET_ADD_COUNTERS
-
-#define IPT_SO_GET_INFO (IPT_BASE_CTL)
-#define IPT_SO_GET_ENTRIES (IPT_BASE_CTL + 1)
-#define IPT_SO_GET_REVISION_MATCH (IPT_BASE_CTL + 2)
-#define IPT_SO_GET_REVISION_TARGET (IPT_BASE_CTL + 3)
-#define IPT_SO_GET_MAX IPT_SO_GET_REVISION_TARGET
+    // missing the _GET variants, but we currently don't filter those anyways.
+};

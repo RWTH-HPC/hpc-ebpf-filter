@@ -1,5 +1,7 @@
 #pragma once
 
+#include "shared_base.h" // IWYU pragma: keep
+
 // taken from <sys/socket.h>
 
 /* Protocol families.  */
@@ -55,56 +57,59 @@
 #define PF_MAX 46           /* For now..  */
 
 /* Address families.  */
-#define AF_UNSPEC PF_UNSPEC
-#define AF_LOCAL PF_LOCAL
-#define AF_UNIX PF_UNIX
-#define AF_FILE PF_FILE
-#define AF_INET PF_INET
-#define AF_AX25 PF_AX25
-#define AF_IPX PF_IPX
-#define AF_APPLETALK PF_APPLETALK
-#define AF_NETROM PF_NETROM
-#define AF_BRIDGE PF_BRIDGE
-#define AF_ATMPVC PF_ATMPVC
-#define AF_X25 PF_X25
-#define AF_INET6 PF_INET6
-#define AF_ROSE PF_ROSE
-#define AF_DECnet PF_DECnet
-#define AF_NETBEUI PF_NETBEUI
-#define AF_SECURITY PF_SECURITY
-#define AF_KEY PF_KEY
-#define AF_NETLINK PF_NETLINK
-#define AF_ROUTE PF_ROUTE
-#define AF_PACKET PF_PACKET
-#define AF_ASH PF_ASH
-#define AF_ECONET PF_ECONET
-#define AF_ATMSVC PF_ATMSVC
-#define AF_RDS PF_RDS
-#define AF_SNA PF_SNA
-#define AF_IRDA PF_IRDA
-#define AF_PPPOX PF_PPPOX
-#define AF_WANPIPE PF_WANPIPE
-#define AF_LLC PF_LLC
-#define AF_IB PF_IB
-#define AF_MPLS PF_MPLS
-#define AF_CAN PF_CAN
-#define AF_TIPC PF_TIPC
-#define AF_BLUETOOTH PF_BLUETOOTH
-#define AF_IUCV PF_IUCV
-#define AF_RXRPC PF_RXRPC
-#define AF_ISDN PF_ISDN
-#define AF_PHONET PF_PHONET
-#define AF_IEEE802154 PF_IEEE802154
-#define AF_CAIF PF_CAIF
-#define AF_ALG PF_ALG
-#define AF_NFC PF_NFC
-#define AF_VSOCK PF_VSOCK
-#define AF_KCM PF_KCM
-#define AF_QIPCRTR PF_QIPCRTR
-#define AF_SMC PF_SMC
-#define AF_XDP PF_XDP
-#define AF_MCTP PF_MCTP
-#define AF_MAX PF_MAX
+
+enum AddressFamily : uint8_t {
+    AF_UNSPEC = PF_UNSPEC,
+    // AF_LOCAL = PF_LOCAL,
+    AF_UNIX = PF_UNIX,
+    // AF_FILE = PF_FILE,
+    AF_INET = PF_INET,
+    AF_AX25 = PF_AX25,
+    AF_IPX = PF_IPX,
+    AF_APPLETALK = PF_APPLETALK,
+    AF_NETROM = PF_NETROM,
+    AF_BRIDGE = PF_BRIDGE,
+    AF_ATMPVC = PF_ATMPVC,
+    AF_X25 = PF_X25,
+    AF_INET6 = PF_INET6,
+    AF_ROSE = PF_ROSE,
+    AF_DECnet = PF_DECnet,
+    AF_NETBEUI = PF_NETBEUI,
+    AF_SECURITY = PF_SECURITY,
+    AF_KEY = PF_KEY,
+    AF_NETLINK = PF_NETLINK,
+    // AF_ROUTE = PF_ROUTE,
+    AF_PACKET = PF_PACKET,
+    AF_ASH = PF_ASH,
+    AF_ECONET = PF_ECONET,
+    AF_ATMSVC = PF_ATMSVC,
+    AF_RDS = PF_RDS,
+    AF_SNA = PF_SNA,
+    AF_IRDA = PF_IRDA,
+    AF_PPPOX = PF_PPPOX,
+    AF_WANPIPE = PF_WANPIPE,
+    AF_LLC = PF_LLC,
+    AF_IB = PF_IB,
+    AF_MPLS = PF_MPLS,
+    AF_CAN = PF_CAN,
+    AF_TIPC = PF_TIPC,
+    AF_BLUETOOTH = PF_BLUETOOTH,
+    AF_IUCV = PF_IUCV,
+    AF_RXRPC = PF_RXRPC,
+    AF_ISDN = PF_ISDN,
+    AF_PHONET = PF_PHONET,
+    AF_IEEE802154 = PF_IEEE802154,
+    AF_CAIF = PF_CAIF,
+    AF_ALG = PF_ALG,
+    AF_NFC = PF_NFC,
+    AF_VSOCK = PF_VSOCK,
+    AF_KCM = PF_KCM,
+    AF_QIPCRTR = PF_QIPCRTR,
+    AF_SMC = PF_SMC,
+    AF_XDP = PF_XDP,
+    AF_MCTP = PF_MCTP,
+    // AF_MAX = PF_MAX,
+};
 
 /* Socket level values.  Others are defined in the appropriate headers.
 
