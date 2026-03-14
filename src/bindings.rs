@@ -10,46 +10,57 @@ use std::fmt::{Display, Formatter};
 
 impl Display for Event {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "op={:?}", self.operation)?;
+
+        unsafe {
+            match self.operation {
+                Operation::SOCKET_CREATE => {
+                    let family = self.operation_details.socket_create.family;
+                    write!(f, " family={:?}", family)?;
+
+                    if let Some(sock_type) =
+                        sock_type::from_repr(self.operation_details.socket_create.type_ as u32)
+                    {
+                        write!(f, " type={:?}", sock_type)?;
+                    } else {
+                        write!(f, " type=unknown")?;
+                    }
+
+                    if family == AddressFamily::AF_NETLINK {
+                        write!(
+                            f,
+                            " protocol={:?}",
+                            self.operation_details.socket_create.protocol.netlink_family
+                        )?;
+                    }
+                }
+                Operation::SETSOCKOPT => {
+                    write!(
+                        f,
+                        " optname={:?}",
+                        self.operation_details.setsockopt.optname
+                    )?;
+                }
+                Operation::NETLINK_SEND => {
+                    let family = self.operation_details.netlink_send.family;
+
+                    write!(f, " family={:?}", family)?;
+                    if family == NetlinkFamily::NETLINK_ROUTE {
+                        if let Some(message_type) = RtnetlinkMessageType::from_repr(
+                            self.operation_details.netlink_send.message_type,
+                        ) {
+                            write!(f, " type={:?}", message_type)?;
+                        } else {
+                            write!(f, " type=unknown")?;
+                        }
+                    }
+                }
+            }
+        }
+
         write!(
             f,
-            "op={:?} {} pid={} uid={} comm={}",
-            self.operation,
-            unsafe {
-                match self.operation {
-                    Operation::SOCKET_CREATE => match self.operation_details.socket_create.family {
-                        AddressFamily::AF_NETLINK => format!(
-                            "family={:?} type={} protocol={:?}",
-                            self.operation_details.socket_create.family,
-                            sock_type::from_repr(self.operation_details.socket_create.type_ as u32)
-                                .and_then(|val| format!("{:?}", val).parse().ok())
-                                .unwrap_or("unknown".to_string()),
-                            self.operation_details.socket_create.protocol.netlink_family
-                        ),
-                        _ => format!(
-                            "family={:?} type={}",
-                            self.operation_details.socket_create.family,
-                            sock_type::from_repr(self.operation_details.socket_create.type_ as u32)
-                                .and_then(|val| format!("{:?}", val).parse().ok())
-                                .unwrap_or("unknown".to_string())
-                        ),
-                    },
-                    Operation::SETSOCKOPT => {
-                        format!("optname={:?}", self.operation_details.setsockopt.optname)
-                    }
-                    Operation::NETLINK_SEND => match self.operation_details.netlink_send.family {
-                        NetlinkFamily::NETLINK_ROUTE => format!(
-                            "family={:?} type={}",
-                            self.operation_details.netlink_send.family,
-                            RtnetlinkMessageType::from_repr(
-                                self.operation_details.netlink_send.message_type
-                            )
-                            .and_then(|val| format!("{:?}", val).parse().ok())
-                            .unwrap_or("unknown".to_string())
-                        ),
-                        _ => format!("family={:?}", self.operation_details.netlink_send.family),
-                    },
-                }
-            },
+            " pid={} uid={} comm={}",
             self.pid,
             self.uid,
             std::str::from_utf8(&self.comm).unwrap_or("unknown"),
