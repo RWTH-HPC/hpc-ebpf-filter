@@ -13,7 +13,11 @@ Folgendes wird denied:
   - nftables,
   - nflog
   - xfrm (ipsec)
-  - tc
+  - jegliche modifizierende NETLINK_ROUTE Operationen, u.a.
+    - Anlegen von Links und Routen
+    - VLANs, Tunnel
+    - tc, qdisc
+    - Änderung der Neighbor Table (ARP) und Nexthop
 - Nutzung von AF_KEY (ipsec)
 - Nutzung von AF_PACKET und das veraltete AF_INET mit SOCK_PACKET
 
