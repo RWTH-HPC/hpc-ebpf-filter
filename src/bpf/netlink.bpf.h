@@ -85,6 +85,7 @@ static __always_inline bool skb_has_forbidden_rtnl_msg(struct sk_buff *skb,
         }
 
         if (!is_readonly_rtnl_type(current_nlh.nlmsg_type)) {
+            *message_type = current_nlh.nlmsg_type;
             forbidden = true;
             break;
         }
