@@ -4,6 +4,7 @@
 #endif
 
 #include "iptables_defines.h"
+#include "netlink.bpf.h"
 #include "netlink_defines.h"
 #include "shared.h"
 #include "socket_defines.h"
@@ -36,64 +37,6 @@ static __noinline void log_event(u32 uid, enum Operation operation,
         event->operation_details = details;
         bpf_get_current_comm(&event->comm, sizeof(event->comm));
         bpf_ringbuf_submit(event, 0);
-    }
-}
-
-static __always_inline bool get_netlink_message_type(struct sk_buff *skb,
-                                                     u16 *retval) {
-    const void *const head = skb->head;
-    const u32 len = skb->len;
-    // nlmsghdr is a UAPI type, so we can assume the layout never changes
-    // and don't need to use CO_RE to retrieve members
-    struct nlmsghdr nlh;
-
-    if (head == NULL || len < sizeof(nlh)) {
-        return false;
-    }
-    if (bpf_probe_read_kernel(&nlh, sizeof(nlh), head) != 0) {
-        return false;
-    }
-    if (nlh.nlmsg_len < sizeof(nlh) || nlh.nlmsg_len > len) {
-        return false;
-    }
-
-    *retval = nlh.nlmsg_type;
-    return true;
-}
-
-static __always_inline bool is_readonly_rtnl_type(u16 message_type) {
-    switch (message_type) {
-    case RTM_GETLINK:
-    case RTM_GETADDR:
-    case RTM_GETROUTE:
-    case RTM_GETNEIGH:
-    case RTM_GETRULE:
-    case RTM_GETQDISC:
-    case RTM_GETTCLASS:
-    case RTM_GETTFILTER:
-    case RTM_GETACTION:
-    case RTM_GETMULTICAST:
-    case RTM_GETANYCAST:
-    case RTM_GETNEIGHTBL:
-    case RTM_GETADDRLABEL:
-    case RTM_GETDCB:
-    case RTM_GETNETCONF:
-    case RTM_GETMDB:
-    case RTM_GETNSID:
-    case RTM_GETSTATS:
-    case RTM_GETCHAIN:
-    case RTM_GETNEXTHOP:
-    case RTM_GETLINKPROP:
-    case RTM_GETVLAN:
-    case RTM_GETNEXTHOPBUCKET:
-    case RTM_GETTUNNEL:
-    case RTM_NEWPREFIX:
-    case RTM_NEWNDUSEROPT:
-    case RTM_NEWSTATS:
-    case RTM_NEWCACHEREPORT:
-        return true;
-    default:
-        return false;
     }
 }
 
@@ -135,11 +78,7 @@ int BPF_PROG(deny_netlink_send, struct sock *sk, struct sk_buff *skb) {
     bool denied = false;
     switch (sk->sk_protocol) {
     case NETLINK_ROUTE:
-        if (!get_netlink_message_type(skb, &netlink_message_type)) {
-            denied = true;
-            break;
-        }
-        if (!is_readonly_rtnl_type(netlink_message_type)) {
+        if (skb_has_forbidden_rtnl_msg(skb, &netlink_message_type)) {
             denied = true;
         }
         break;
