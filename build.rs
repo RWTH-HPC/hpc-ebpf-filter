@@ -159,6 +159,8 @@ fn generate_bindings(bpf_headers_dir: &Path, out_dir: &Path) {
         // Generate bindings for the types we care about
         .allowlist_type("Operation")
         .rustified_enum("Operation")
+        .allowlist_type("BindType")
+        .rustified_enum("BindType")
         .allowlist_type("OperationDetails")
         .allowlist_type("Event")
         .allowlist_type("AddressFamily")

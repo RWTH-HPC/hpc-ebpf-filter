@@ -1,3 +1,4 @@
+#include <asm-generic/errno-base.h>
 #if defined(CLANG_TIDY)
 // required for PT_REGS macros to not error
 #define __BPF_TARGET_MISSING ""
@@ -38,6 +39,40 @@ static __noinline void log_event(u32 uid, enum Operation operation,
         bpf_get_current_comm(&event->comm, sizeof(event->comm));
         bpf_ringbuf_submit(event, 0);
     }
+}
+
+// this is essentially sockaddr_alg_new but without the VLA
+struct sockaddr_alg_min {
+    u16 salg_family;
+    u8 salg_type[14];
+    u32 salg_feat;
+    u32 salg_mask;
+    u8 salg_name[10];
+};
+
+static __always_inline bool is_authencesn_socket(struct sockaddr *address,
+                                                 int addrlen) {
+    if (addrlen < sizeof(struct sockaddr_alg_min)) {
+        return false;
+    }
+
+    struct sockaddr_alg_min alg;
+    if (bpf_probe_read_kernel(&alg, sizeof(alg), address) != 0) {
+        return false;
+    }
+
+    if (alg.salg_family != AF_ALG) {
+        return false;
+    }
+
+    const char target[10] = "authencesn";
+    for (int i = 0; i < 10; i++) {
+        if (alg.salg_name[i] != target[i]) {
+            return false;
+        }
+    }
+
+    return true;
 }
 
 SEC("lsm/socket_setsockopt")
@@ -136,6 +171,24 @@ int BPF_PROG(deny_socket_create, int family, int type, int protocol, int kern) {
                       .socket_create = {.family = family,
                                         .type = type,
                                         .protocol = {protocol}}});
+        return -EACCES;
+    }
+
+    return 0;
+}
+
+SEC("lsm/socket_bind")
+int BPF_PROG(deny_socket_bind, struct socket *sock, struct sockaddr *address,
+             int addrlen) {
+    const u32 uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
+    if (is_allowed_user(uid)) {
+        return 0;
+    }
+
+    // CVE-2026-31431
+    if (is_authencesn_socket(address, addrlen)) {
+        log_event(uid, SOCKET_BIND,
+                  (union OperationDetails){.socket_bind = {.family = AF_ALG}});
         return -EACCES;
     }
 

@@ -6,12 +6,22 @@
 #include "socket_defines.h"
 
 enum Operation : uint8_t {
+    SOCKET_BIND,
     SOCKET_CREATE,
     SETSOCKOPT,
     NETLINK_SEND,
 };
 
+// yeah idk, sockaddr_ is a mess
+enum BindType : uint8_t {
+    BIND_AF_ALG_AUTHENCESN,
+};
+
 union OperationDetails {
+    struct {
+        enum AddressFamily family;
+        enum BindType bind_type;
+    } socket_bind;
     struct {
         enum AddressFamily family;
         uint8_t type;

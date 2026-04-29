@@ -13,6 +13,17 @@ impl Display for Event {
         write!(f, "op={:?}", self.operation)?;
 
         match self.operation {
+            Operation::SOCKET_BIND => {
+                let socket_bind = unsafe { self.operation_details.socket_bind };
+                let family = socket_bind.family;
+                write!(f, " family={:?}", family)?;
+
+                if let Some(bind_type) = BindType::from_repr(socket_bind.bind_type as u8) {
+                    write!(f, " bind_type={:?}", bind_type)?;
+                } else {
+                    write!(f, " bind_type=unknown")?;
+                }
+            }
             Operation::SOCKET_CREATE => {
                 let socket_create = unsafe { self.operation_details.socket_create };
                 let family = socket_create.family;

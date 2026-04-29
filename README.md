@@ -20,6 +20,7 @@ Folgendes wird denied:
     - Änderung der Neighbor Table (ARP) und Nexthop
 - Nutzung von AF_KEY (ipsec)
 - Nutzung von AF_PACKET und das veraltete AF_INET mit SOCK_PACKET
+- Nutzung des authencesn-ciphers in AF_ALG - CVE-2026-31431
 
 # Nutzung
 
