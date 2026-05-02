@@ -14,7 +14,7 @@ Folgendes wird denied:
   - nflog
   - xfrm (ipsec)
   - jegliche modifizierende NETLINK_ROUTE Operationen, u.a.
-    - Anlegen von Links und Routen
+    - Anlegen von Links und Routen, außer loopback und veth (für Container)
     - VLANs, Tunnel
     - tc, qdisc
     - Änderung der Neighbor Table (ARP) und Nexthop
