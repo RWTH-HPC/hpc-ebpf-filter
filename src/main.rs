@@ -110,11 +110,14 @@ async fn main() -> Result<()> {
             _ = sigterm.recv() => {
                 break;
             }
-            guard = async_fd.readable() => {
-                let mut guard = guard?;
-                ringbuf.consume()?;
-                guard.clear_ready();
-            }
+            _ = async_fd.async_io(tokio::io::Interest::READABLE, |_| {
+                let consumed = ringbuf.consume_raw();
+                match consumed {
+                    n if n > 0 => Ok(n),
+                    0 => Err(std::io::ErrorKind::WouldBlock.into()),
+                    n => Err(std::io::Error::from_raw_os_error(-n)),
+                }
+            }) => {},
         }
     }
 
