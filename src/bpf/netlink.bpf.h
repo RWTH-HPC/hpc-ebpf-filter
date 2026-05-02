@@ -123,11 +123,6 @@ static __always_inline bool modifies_veth_or_lo(struct nlmsghdr *nlh,
         return false;
     }
 
-    // loopback
-    if (ifi.ifi_index == 1) {
-        return true;
-    }
-
     int attrlen = remaining - NLMSG_SPACE(sizeof(struct ifinfomsg));
     if (attrlen < 0) {
         return false;
@@ -176,6 +171,7 @@ static __always_inline bool modifies_veth_or_lo(struct nlmsghdr *nlh,
                 if (current_nested.rta_type == IFLA_INFO_KIND) {
                     char kind[5] = {0};
                     const char *veth_str = "veth";
+                    const char *lo_str = "lo";
                     // Ensure length is enough for "veth"
                     int copy_len = current_nested.rta_len -
                                    RTA_ALIGN(sizeof(struct rtattr));
@@ -183,13 +179,20 @@ static __always_inline bool modifies_veth_or_lo(struct nlmsghdr *nlh,
                         if (bpf_probe_read_kernel(kind, 5, RTA_DATA(nested)) ==
                             0) {
                             bool is_veth = true;
+                            bool is_lo = true;
                             for (int i = 0; i < 5; i++) {
                                 if (kind[i] != veth_str[i]) {
                                     is_veth = false;
                                     break;
                                 }
                             }
-                            if (is_veth) {
+                            for (int i = 0; i < 3; i++) {
+                                if (kind[i] != lo_str[i]) {
+                                    is_lo = false;
+                                    break;
+                                }
+                            }
+                            if (is_veth || is_lo) {
                                 allowed = true;
                             }
                         }
