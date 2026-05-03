@@ -135,7 +135,10 @@ static __always_inline bool modifies_veth_or_lo(struct nlmsghdr *nlh,
         &iter, 0,
         (remaining - sizeof(struct ifinfomsg)) / sizeof(struct rtattr) + 1);
 
-    bool allowed = false;
+    // unsure if rtnetlink lets us operate on multiple links at once?
+    // check all messages just in case
+    bool has_seen_veth_or_lo = false;
+    bool has_seen_non_veth_or_lo = false;
 
     while (bpf_iter_num_next(&iter)) {
         struct rtattr current_rta;
@@ -172,32 +175,38 @@ static __always_inline bool modifies_veth_or_lo(struct nlmsghdr *nlh,
                     char kind[5] = {0};
                     const char *veth_str = "veth";
                     const char *lo_str = "lo";
+                    bool is_veth = true;
+                    bool is_lo = true;
                     // Ensure length is enough for "veth"
                     int copy_len = current_nested.rta_len -
                                    RTA_ALIGN(sizeof(struct rtattr));
                     if (copy_len >= 5) {
                         if (bpf_probe_read_kernel(kind, 5, RTA_DATA(nested)) ==
                             0) {
-                            bool is_veth = true;
-                            bool is_lo = true;
                             for (int i = 0; i < 5; i++) {
                                 if (kind[i] != veth_str[i]) {
                                     is_veth = false;
                                     break;
                                 }
                             }
+                        }
+                    }
+                    if (copy_len >= 3) {
+                        if (bpf_probe_read_kernel(kind, 3, RTA_DATA(nested)) ==
+                            0) {
                             for (int i = 0; i < 3; i++) {
                                 if (kind[i] != lo_str[i]) {
                                     is_lo = false;
                                     break;
                                 }
                             }
-                            if (is_veth || is_lo) {
-                                allowed = true;
-                            }
                         }
                     }
-                    break;
+                    if (!is_veth && !is_lo) {
+                        has_seen_non_veth_or_lo = true;
+                    } else {
+                        has_seen_veth_or_lo = true;
+                    }
                 }
 
                 nested = RTA_NEXT(&current_nested, nested_len);
@@ -211,7 +220,7 @@ static __always_inline bool modifies_veth_or_lo(struct nlmsghdr *nlh,
     }
 
     bpf_iter_num_destroy(&iter);
-    return allowed;
+    return has_seen_veth_or_lo && !has_seen_non_veth_or_lo;
 }
 
 static __always_inline bool skb_has_forbidden_rtnl_msg(struct sk_buff *skb,
