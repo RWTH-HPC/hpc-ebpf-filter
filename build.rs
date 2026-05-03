@@ -79,7 +79,7 @@ fn main() {
         .build_and_generate(&skel_path)
         .expect("bpf compilation failed");
 
-    println!("cargo:rerun-if-changed={}", "src/bpf/");
+    println!("cargo:rerun-if-changed=src/bpf/");
 }
 
 fn get_target_dir() -> PathBuf {
