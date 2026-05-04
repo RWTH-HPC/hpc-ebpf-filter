@@ -4,6 +4,8 @@
 
 // taken from <linux/rtnetlink.h>
 
+// NOLINTBEGIN
+
 #define RTNL_FAMILY_IPMR 128
 #define RTNL_FAMILY_IP6MR 129
 #define RTNL_FAMILY_MAX 129
@@ -26,3 +28,5 @@
 #define RTA_PAYLOAD(rta) ((int)((rta)->rta_len) - RTA_LENGTH(0))
 
 #define RTN_MAX (__RTN_MAX - 1)
+
+// NOLINTEND

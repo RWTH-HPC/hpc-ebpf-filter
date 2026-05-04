@@ -5,6 +5,7 @@
 #include "vmlinux.h"
 
 #include <bpf/bpf_helpers.h>
+#include <limits.h>
 
 static __always_inline bool is_readonly_rtnl_type(u16 message_type) {
     switch (message_type) {
@@ -123,7 +124,7 @@ static __always_inline bool modifies_veth_or_lo(struct nlmsghdr *nlh,
         return false;
     }
 
-    int attrlen = remaining - NLMSG_SPACE(sizeof(struct ifinfomsg));
+    s64 attrlen = remaining - (u8)NLMSG_SPACE(sizeof(struct ifinfomsg));
     if (attrlen < 0) {
         return false;
     }
@@ -131,9 +132,12 @@ static __always_inline bool modifies_veth_or_lo(struct nlmsghdr *nlh,
     struct rtattr *rta = ifi_ptr + NLMSG_ALIGN(sizeof(struct ifinfomsg));
 
     struct bpf_iter_num iter;
-    bpf_iter_num_new(
-        &iter, 0,
-        (remaining - sizeof(struct ifinfomsg)) / sizeof(struct rtattr) + 1);
+    const u32 max_num_iterations =
+        ((remaining - sizeof(struct ifinfomsg)) / sizeof(struct rtattr)) + 1;
+    if (max_num_iterations > INT_MAX) {
+        return false;
+    }
+    bpf_iter_num_new(&iter, 0, (int)max_num_iterations);
 
     // unsure if rtnetlink lets us operate on multiple links at once?
     // check all messages just in case
@@ -153,12 +157,12 @@ static __always_inline bool modifies_veth_or_lo(struct nlmsghdr *nlh,
 
         if (current_rta.rta_type == IFLA_LINKINFO) {
             int nested_len =
-                current_rta.rta_len - RTA_ALIGN(sizeof(struct rtattr));
+                current_rta.rta_len - (u8)RTA_ALIGN(sizeof(struct rtattr));
             struct rtattr *nested = RTA_DATA(rta);
 
             struct bpf_iter_num iter_nest;
             bpf_iter_num_new(&iter_nest, 0,
-                             nested_len / sizeof(struct rtattr) + 1);
+                             (nested_len / (u8)sizeof(struct rtattr)) + 1);
 
             while (bpf_iter_num_next(&iter_nest)) {
                 struct rtattr current_nested;
@@ -175,31 +179,35 @@ static __always_inline bool modifies_veth_or_lo(struct nlmsghdr *nlh,
                     char kind[5] = {0};
                     const char *veth_str = "veth";
                     const char *lo_str = "lo";
-                    bool is_veth = true;
-                    bool is_lo = true;
+                    bool is_veth = false;
+                    bool is_lo = false;
                     // Ensure length is enough for "veth"
-                    int copy_len = current_nested.rta_len -
-                                   RTA_ALIGN(sizeof(struct rtattr));
+                    const int copy_len = current_nested.rta_len -
+                                         (u8)RTA_ALIGN(sizeof(struct rtattr));
                     if (copy_len >= 5) {
                         if (bpf_probe_read_kernel(kind, 5, RTA_DATA(nested)) ==
                             0) {
+                            bool match = true;
                             for (int i = 0; i < 5; i++) {
                                 if (kind[i] != veth_str[i]) {
-                                    is_veth = false;
+                                    match = false;
                                     break;
                                 }
                             }
+                            is_veth = match;
                         }
                     }
                     if (copy_len >= 3) {
                         if (bpf_probe_read_kernel(kind, 3, RTA_DATA(nested)) ==
                             0) {
+                            bool match = true;
                             for (int i = 0; i < 3; i++) {
                                 if (kind[i] != lo_str[i]) {
-                                    is_lo = false;
+                                    match = false;
                                     break;
                                 }
                             }
+                            is_lo = match;
                         }
                     }
                     if (!is_veth && !is_lo) {
@@ -231,7 +239,10 @@ static __always_inline bool skb_has_forbidden_rtnl_msg(struct sk_buff *skb,
     // skb size is soft-capped to 8 KiB
     // in practice, this means 512 iterations at max,
     // but there's no written guarantee
-    const u32 num_iters = remaining / sizeof(struct nlmsghdr) + 1;
+    const u32 num_iters = (remaining / sizeof(struct nlmsghdr)) + 1;
+    if (num_iters > INT_MAX) {
+        return true;
+    }
 
     if (!nlh || remaining == 0) {
         return false;
@@ -239,7 +250,7 @@ static __always_inline bool skb_has_forbidden_rtnl_msg(struct sk_buff *skb,
 
     bool forbidden = false;
     struct bpf_iter_num iter;
-    bpf_iter_num_new(&iter, 0, num_iters);
+    bpf_iter_num_new(&iter, 0, (int)num_iters);
 
     while (bpf_iter_num_next(&iter)) {
         struct nlmsghdr current_nlh;

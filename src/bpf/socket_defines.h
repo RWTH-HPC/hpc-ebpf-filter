@@ -4,6 +4,8 @@
 
 // taken from <sys/socket.h>
 
+// NOLINTBEGIN
+
 /* Protocol families.  */
 #define PF_UNSPEC 0      /* Unspecified.  */
 #define PF_LOCAL 1       /* Local to host (pipes and file-domain).  */
@@ -144,3 +146,5 @@ enum AddressFamily : uint8_t {
 
 /* Maximum queue length specifiable by listen.  */
 #define SOMAXCONN 4096
+
+// NOLINTEND

@@ -5,6 +5,11 @@
 #include "shared_base.h" // IWYU pragma: keep
 #include "socket_defines.h"
 
+#ifndef TASK_COMM_LEN
+// not defined on older kernels
+#define TASK_COMM_LEN 16
+#endif
+
 enum Operation : uint8_t {
     SOCKET_BIND,
     SOCKET_CREATE,

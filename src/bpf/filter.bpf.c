@@ -1,7 +1,6 @@
-#include <asm-generic/errno-base.h>
-#if defined(CLANG_TIDY)
+#ifdef CLANG_TIDY
 // required for PT_REGS macros to not error
-#define __BPF_TARGET_MISSING ""
+#define __BPF_TARGET_MISSING "" // NOLINT(bugprone-reserved-identifier)
 #endif
 
 #include "iptables_defines.h"
@@ -11,10 +10,10 @@
 #include "socket_defines.h"
 #include "vmlinux.h"
 
-#include <asm/unistd.h>
+#include <asm-generic/errno-base.h>
+#include <bpf/bpf_core_read.h>
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
-#include <linux/errno.h>
 
 const char LICENSE[] SEC("license") = "GPL";
 
@@ -65,8 +64,8 @@ static __always_inline bool is_authencesn_socket(struct sockaddr *address,
         return false;
     }
 
-    const char target[10] = "authencesn";
-    for (int i = 0; i < 10; i++) {
+    const u8 target[10] = "authencesn";
+    for (int i = 0; i < sizeof(target); i++) {
         if (alg.salg_name[i] != target[i]) {
             return false;
         }
@@ -95,6 +94,8 @@ int BPF_PROG(deny_setsockopt, struct socket *sock, int level, int optname) {
                           .setsockopt.optname = optname,
                       });
             return -EPERM;
+        default:
+            break;
         }
     }
 
@@ -111,7 +112,8 @@ int BPF_PROG(deny_netlink_send, struct sock *sk, struct sk_buff *skb) {
     u16 netlink_message_type = 0;
 
     bool denied = false;
-    switch (sk->sk_protocol) {
+    const u16 protocol = BPF_CORE_READ_BITFIELD(sk, sk_protocol);
+    switch (protocol) {
     case NETLINK_ROUTE:
         if (skb_has_forbidden_rtnl_msg(skb, &netlink_message_type)) {
             denied = true;
@@ -121,13 +123,16 @@ int BPF_PROG(deny_netlink_send, struct sock *sk, struct sk_buff *skb) {
     case NETLINK_XFRM:
     case NETLINK_NETFILTER:
         denied = true;
+        break;
+    default:
+        break;
     }
 
     if (denied) {
         log_event(uid, NETLINK_SEND,
-                  (union OperationDetails){
-                      .netlink_send.family = sk->sk_protocol,
-                      .netlink_send.message_type = netlink_message_type});
+                  (union OperationDetails){.netlink_send.family = protocol,
+                                           .netlink_send.message_type =
+                                               netlink_message_type});
         return -EACCES;
     }
 
@@ -147,22 +152,28 @@ int BPF_PROG(deny_socket_create, int family, int type, int protocol, int kern) {
 
     bool denied = false;
     switch (family) {
-    case (AF_INET):
+    case AF_INET:
         if (type == SOCK_PACKET) {
             denied = true;
         }
         break;
-    case (AF_NETLINK):
+    case AF_NETLINK:
         switch (protocol) {
         case NETLINK_NFLOG:
         case NETLINK_XFRM:
         case NETLINK_NETFILTER:
             denied = true;
+            break;
+        default:
+            break;
         }
         break;
-    case (AF_KEY):
-    case (AF_PACKET):
+    case AF_KEY:
+    case AF_PACKET:
         denied = true;
+        break;
+    default:
+        break;
     }
 
     if (denied) {

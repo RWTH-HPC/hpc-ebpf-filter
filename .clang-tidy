@@ -1,2 +1,3 @@
 FormatStyle: "file"
 ExtraArgsBefore: ["-DCLANG_TIDY"]
+Checks: "-*, bugprone-*, -bugprone-easily-swappable-parameters, modernize-*, performance-*, portability-*, -portability-avoid-pragma-once, readability-*, -readability-magic-numbers, -readability-implicit-bool-conversion, -readability-identifier-length, clang-*"
