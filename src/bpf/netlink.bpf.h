@@ -6,6 +6,7 @@
 
 #include <bpf/bpf_helpers.h>
 #include <limits.h>
+#include <sys/cdefs.h>
 
 static __always_inline bool is_readonly_rtnl_type(u16 message_type) {
     switch (message_type) {
@@ -105,7 +106,95 @@ static __always_inline bool is_allowed_modifying_rtnl_type(u16 message_type) {
 */
 // clang-format on
 
-static __always_inline bool modifies_veth_or_lo(struct nlmsghdr *nlh,
+static __always_inline bool
+rtattr_info_kind_is_lo_or_veth(const struct rtattr *rta) {
+
+    if (rta->rta_type != IFLA_INFO_KIND) {
+        return false;
+    }
+
+    char kind[5] = {0};
+    const char *lo_str = "lo";
+    const char *veth_str = "veth";
+    bool is_lo = false;
+    bool is_veth = false;
+    // Ensure length is enough for "veth"
+    const int copy_len = rta->rta_len - (u8)RTA_ALIGN(sizeof(struct rtattr));
+    if (copy_len >= 3) {
+        if (bpf_probe_read_kernel(kind, 3, RTA_DATA(rta)) == 0) {
+            bool match = true;
+            for (int i = 0; i < 3; i++) {
+                if (kind[i] != lo_str[i]) {
+                    match = false;
+                    break;
+                }
+            }
+            is_lo = match;
+        }
+    }
+    if (copy_len >= 5) {
+        if (bpf_probe_read_kernel(kind, 5, RTA_DATA(rta)) == 0) {
+            bool match = true;
+            for (int i = 0; i < 5; i++) {
+                if (kind[i] != veth_str[i]) {
+                    match = false;
+                    break;
+                }
+            }
+            is_veth = match;
+        }
+    }
+
+    return is_lo || is_veth;
+}
+
+static __always_inline bool
+rtattr_linkinfo_is_lo_or_veth(const struct rtattr *rta) {
+
+    if (rta->rta_type != IFLA_LINKINFO) {
+        return false;
+    }
+
+    bool has_seen_veth_or_lo = false;
+    bool has_seen_non_veth_or_lo = false;
+    bool rta_malformed = false;
+
+    int nested_len = rta->rta_len - (u8)RTA_ALIGN(sizeof(struct rtattr));
+    const struct rtattr *nested = RTA_DATA(rta);
+
+    struct bpf_iter_num iter_nest;
+    bpf_iter_num_new(&iter_nest, 0,
+                     (nested_len / (u8)sizeof(struct rtattr)) + 1);
+
+    while (bpf_iter_num_next(&iter_nest)) {
+        struct rtattr current_nested;
+        if (bpf_probe_read_kernel(&current_nested, sizeof(current_nested),
+                                  nested) != 0) {
+            rta_malformed = true;
+            break;
+        }
+
+        if (!RTA_OK(&current_nested, nested_len)) {
+            rta_malformed = true;
+            break;
+        }
+
+        if (current_nested.rta_type == IFLA_INFO_KIND) {
+            if (rtattr_info_kind_is_lo_or_veth(&current_nested)) {
+                has_seen_veth_or_lo = true;
+            } else {
+                has_seen_non_veth_or_lo = true;
+            }
+        }
+
+        nested = RTA_NEXT(&current_nested, nested_len);
+    }
+
+    bpf_iter_num_destroy(&iter_nest);
+    return has_seen_veth_or_lo && !has_seen_non_veth_or_lo && !rta_malformed;
+}
+
+static __always_inline bool modifies_veth_or_lo(const struct nlmsghdr *nlh,
                                                 s64 remaining) {
     // ifinfomsg is only used for these messages, so reject all others
     switch (nlh->nlmsg_type) {
@@ -129,7 +218,7 @@ static __always_inline bool modifies_veth_or_lo(struct nlmsghdr *nlh,
         return false;
     }
 
-    struct rtattr *rta = ifi_ptr + NLMSG_ALIGN(sizeof(struct ifinfomsg));
+    const struct rtattr *rta = ifi_ptr + NLMSG_ALIGN(sizeof(struct ifinfomsg));
 
     struct bpf_iter_num iter;
     const u32 max_num_iterations =
@@ -143,92 +232,34 @@ static __always_inline bool modifies_veth_or_lo(struct nlmsghdr *nlh,
     // check all messages just in case
     bool has_seen_veth_or_lo = false;
     bool has_seen_non_veth_or_lo = false;
+    bool rta_malformed = false;
 
     while (bpf_iter_num_next(&iter)) {
         struct rtattr current_rta;
-        if (bpf_probe_read_kernel(&current_rta, sizeof(struct rtattr), rta) !=
+        if (bpf_probe_read_kernel(&current_rta, sizeof(current_rta), rta) !=
             0) {
+            rta_malformed = true;
             break;
         }
 
         if (!RTA_OK(&current_rta, attrlen)) {
+            rta_malformed = true;
             break;
         }
 
         if (current_rta.rta_type == IFLA_LINKINFO) {
-            int nested_len =
-                current_rta.rta_len - (u8)RTA_ALIGN(sizeof(struct rtattr));
-            struct rtattr *nested = RTA_DATA(rta);
-
-            struct bpf_iter_num iter_nest;
-            bpf_iter_num_new(&iter_nest, 0,
-                             (nested_len / (u8)sizeof(struct rtattr)) + 1);
-
-            while (bpf_iter_num_next(&iter_nest)) {
-                struct rtattr current_nested;
-                if (bpf_probe_read_kernel(&current_nested,
-                                          sizeof(struct rtattr), nested) != 0) {
-                    break;
-                }
-
-                if (!RTA_OK(&current_nested, nested_len)) {
-                    break;
-                }
-
-                if (current_nested.rta_type == IFLA_INFO_KIND) {
-                    char kind[5] = {0};
-                    const char *veth_str = "veth";
-                    const char *lo_str = "lo";
-                    bool is_veth = false;
-                    bool is_lo = false;
-                    // Ensure length is enough for "veth"
-                    const int copy_len = current_nested.rta_len -
-                                         (u8)RTA_ALIGN(sizeof(struct rtattr));
-                    if (copy_len >= 5) {
-                        if (bpf_probe_read_kernel(kind, 5, RTA_DATA(nested)) ==
-                            0) {
-                            bool match = true;
-                            for (int i = 0; i < 5; i++) {
-                                if (kind[i] != veth_str[i]) {
-                                    match = false;
-                                    break;
-                                }
-                            }
-                            is_veth = match;
-                        }
-                    }
-                    if (copy_len >= 3) {
-                        if (bpf_probe_read_kernel(kind, 3, RTA_DATA(nested)) ==
-                            0) {
-                            bool match = true;
-                            for (int i = 0; i < 3; i++) {
-                                if (kind[i] != lo_str[i]) {
-                                    match = false;
-                                    break;
-                                }
-                            }
-                            is_lo = match;
-                        }
-                    }
-                    if (!is_veth && !is_lo) {
-                        has_seen_non_veth_or_lo = true;
-                    } else {
-                        has_seen_veth_or_lo = true;
-                    }
-                }
-
-                nested = RTA_NEXT(&current_nested, nested_len);
+            if (rtattr_linkinfo_is_lo_or_veth(&current_rta)) {
+                has_seen_veth_or_lo = true;
+            } else {
+                has_seen_non_veth_or_lo = true;
             }
-
-            bpf_iter_num_destroy(&iter_nest);
-            break;
         }
 
         rta = RTA_NEXT(&current_rta, attrlen);
     }
 
     bpf_iter_num_destroy(&iter);
-    return has_seen_veth_or_lo && !has_seen_non_veth_or_lo;
+    return has_seen_veth_or_lo && !has_seen_non_veth_or_lo && !rta_malformed;
 }
 
 static __always_inline bool skb_has_forbidden_rtnl_msg(struct sk_buff *skb,
