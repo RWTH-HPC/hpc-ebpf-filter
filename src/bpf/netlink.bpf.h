@@ -157,7 +157,6 @@ rtattr_linkinfo_is_lo_or_veth(const struct rtattr *rta) {
 
     bool has_seen_veth_or_lo = false;
     bool has_seen_non_veth_or_lo = false;
-    bool rta_malformed = false;
 
     int nested_len = rta->rta_len - (u8)RTA_ALIGN(sizeof(struct rtattr));
     const struct rtattr *nested = RTA_DATA(rta);
@@ -170,12 +169,10 @@ rtattr_linkinfo_is_lo_or_veth(const struct rtattr *rta) {
         struct rtattr current_nested;
         if (bpf_probe_read_kernel(&current_nested, sizeof(current_nested),
                                   nested) != 0) {
-            rta_malformed = true;
             break;
         }
 
         if (!RTA_OK(&current_nested, nested_len)) {
-            rta_malformed = true;
             break;
         }
 
@@ -191,7 +188,7 @@ rtattr_linkinfo_is_lo_or_veth(const struct rtattr *rta) {
     }
 
     bpf_iter_num_destroy(&iter_nest);
-    return has_seen_veth_or_lo && !has_seen_non_veth_or_lo && !rta_malformed;
+    return has_seen_veth_or_lo && !has_seen_non_veth_or_lo;
 }
 
 static __always_inline bool modifies_veth_or_lo(const struct nlmsghdr *nlh,
@@ -232,18 +229,15 @@ static __always_inline bool modifies_veth_or_lo(const struct nlmsghdr *nlh,
     // check all messages just in case
     bool has_seen_veth_or_lo = false;
     bool has_seen_non_veth_or_lo = false;
-    bool rta_malformed = false;
 
     while (bpf_iter_num_next(&iter)) {
         struct rtattr current_rta;
         if (bpf_probe_read_kernel(&current_rta, sizeof(current_rta), rta) !=
             0) {
-            rta_malformed = true;
             break;
         }
 
         if (!RTA_OK(&current_rta, attrlen)) {
-            rta_malformed = true;
             break;
         }
 
@@ -259,7 +253,7 @@ static __always_inline bool modifies_veth_or_lo(const struct nlmsghdr *nlh,
     }
 
     bpf_iter_num_destroy(&iter);
-    return has_seen_veth_or_lo && !has_seen_non_veth_or_lo && !rta_malformed;
+    return has_seen_veth_or_lo && !has_seen_non_veth_or_lo;
 }
 
 static __always_inline bool skb_has_forbidden_rtnl_msg(struct sk_buff *skb,
