@@ -5,8 +5,6 @@
 #include "vmlinux.h"
 
 #include <bpf/bpf_helpers.h>
-#include <limits.h>
-#include <sys/cdefs.h>
 
 static __always_inline bool is_readonly_rtnl_type(u16 message_type) {
     switch (message_type) {
@@ -220,7 +218,7 @@ static __always_inline bool modifies_veth_or_lo(const struct nlmsghdr *nlh,
     struct bpf_iter_num iter;
     const u32 max_num_iterations =
         ((remaining - sizeof(struct ifinfomsg)) / sizeof(struct rtattr)) + 1;
-    if (max_num_iterations > INT_MAX) {
+    if (max_num_iterations > __INT_MAX__) {
         return false;
     }
     bpf_iter_num_new(&iter, 0, (int)max_num_iterations);
@@ -265,7 +263,7 @@ static __always_inline bool skb_has_forbidden_rtnl_msg(struct sk_buff *skb,
     // in practice, this means 512 iterations at max,
     // but there's no written guarantee
     const u32 num_iters = (remaining / sizeof(struct nlmsghdr)) + 1;
-    if (num_iters > INT_MAX) {
+    if (num_iters > __INT_MAX__) {
         return true;
     }
 
