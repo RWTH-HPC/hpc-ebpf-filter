@@ -170,6 +170,7 @@ int BPF_PROG(deny_socket_create, int family, int type, int protocol, int kern) {
         break;
     case AF_KEY:
     case AF_PACKET:
+    case AF_RXRPC: // DirtyFrag
         denied = true;
         break;
     default:
