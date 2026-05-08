@@ -21,6 +21,10 @@ libbpf-cargo = "0.26.1"
 serde_json = "1.0.149"
 bindgen = "0.72.1"
 
+[features]
+default = []
+rocky8 = []
+
 [profile.release]
 lto = "thin"
 opt-level = 3

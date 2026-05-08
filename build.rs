@@ -51,7 +51,8 @@ fn main() {
         println!("Using existing vmlinux.h at {:?}", vmlinux_path);
     }
 
-    let extra_clang_args = vec![
+    #[allow(unused_mut)]
+    let mut extra_clang_args = vec![
         // generated vmlinux.h is incompatible with C23 native bool as of 2026 :(
         "-std=gnu17",
         "-Wno-c23-extensions",
@@ -61,6 +62,10 @@ fn main() {
         "-Wall",
         "-Werror",
     ];
+    #[cfg(feature = "rocky8")]
+    {
+        extra_clang_args.push("-DROCKY_8");
+    }
     generate_compile_commands(&extra_clang_args);
     generate_bindings(&bpf_headers_dir, &out_dir);
 
@@ -144,11 +149,21 @@ fn generate_bindings(bpf_headers_dir: &Path, out_dir: &Path) {
         }
     }
 
+    #[allow(unused_mut)]
+    let mut extra_clang_args = vec![
+        "-target",
+        "bpf",
+        "-isystem",
+        bpf_headers_dir.to_str().unwrap(),
+    ];
+    #[cfg(feature = "rocky8")]
+    {
+        extra_clang_args.push("-DROCKY_8");
+    }
+
     let bindings = bindgen::Builder::default()
         .header(header_path.to_str().unwrap())
-        .clang_args(["-target", "bpf"])
-        // Add the bpf_headers directory to the include path
-        .clang_args(["-isystem", bpf_headers_dir.to_str().unwrap()])
+        .clang_args(extra_clang_args)
         // Derive useful traits
         .derive_debug(true)
         .derive_default(true)

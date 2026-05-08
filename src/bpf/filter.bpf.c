@@ -4,7 +4,9 @@
 #endif
 
 #include "iptables_defines.h"
+#ifndef ROCKY_8
 #include "netlink.bpf.h"
+#endif
 #include "netlink_defines.h"
 #include "shared.h"
 #include "socket_defines.h"
@@ -115,9 +117,11 @@ int BPF_PROG(deny_netlink_send, struct sock *sk, struct sk_buff *skb) {
     const u16 protocol = BPF_CORE_READ_BITFIELD(sk, sk_protocol);
     switch (protocol) {
     case NETLINK_ROUTE:
+#ifndef ROCKY_8
         if (skb_has_forbidden_rtnl_msg(skb, &netlink_message_type)) {
             denied = true;
         }
+#endif
         break;
     case NETLINK_NFLOG:
     case NETLINK_XFRM:

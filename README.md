@@ -55,3 +55,13 @@ Man müsste sich also lokal per container behelfen, oder clang aus den repo-Quel
 Bauen via `cargo build --release --locked`.  
 Die binary linkt dynamisch gegen obige runtime dependencies.  
 Statisch wäre bestimmt angenehmer, habe ich noch nicht nach geschaut.
+
+# Rocky 8
+
+Auf Rocky 8 ist der Filter eingeschränkt verfügbar.
+
+Einschränkungen:
+
+- Es werden keine NETLINK_ROUTE - Operationen mehr gefiltert (also insbesondere tc und qdisc)
+
+Bauen via `cargo build --release --locked --features rocky8`
