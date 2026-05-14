@@ -15,6 +15,7 @@ enum Operation : uint8_t {
     SOCKET_CREATE,
     SETSOCKOPT,
     NETLINK_SEND,
+    PTRACE_DUMPABLE_EXPLOIT,
 };
 
 // yeah idk, sockaddr_ is a mess

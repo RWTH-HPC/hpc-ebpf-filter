@@ -21,6 +21,7 @@ Folgendes wird denied:
 - Nutzung von AF_KEY (ipsec)
 - Nutzung von AF_PACKET und das veraltete AF_INET mit SOCK_PACKET
 - Nutzung des authencesn-ciphers in AF_ALG - CVE-2026-31431
+- get_dumpable-Lücke (CVE Pending) - siehe https://github.com/0xdeadbeefnetwork/ssh-keysign-pwn
 
 # Nutzung
 

@@ -59,6 +59,9 @@ impl Display for Event {
                     }
                 }
             }
+            Operation::PTRACE_DUMPABLE_EXPLOIT => {
+                // No additional details to decode for this operation
+            }
         }
 
         write!(
