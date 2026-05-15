@@ -4,6 +4,7 @@
 #include "rtnetlink_defines.h"
 #include "vmlinux.h"
 
+#include <bpf/bpf_core_read.h>
 #include <bpf/bpf_helpers.h>
 
 static __always_inline bool is_readonly_rtnl_type(u16 message_type) {
@@ -192,7 +193,7 @@ rtattr_linkinfo_is_lo_or_veth(const struct rtattr *rta) {
 static __always_inline bool modifies_veth_or_lo(const struct nlmsghdr *nlh,
                                                 s64 remaining) {
     // ifinfomsg is only used for these messages, so reject all others
-    switch (nlh->nlmsg_type) {
+    switch (BPF_CORE_READ(nlh, nlmsg_type)) {
     case RTM_NEWLINK:
     case RTM_DELLINK:
     case RTM_GETLINK:
@@ -320,7 +321,9 @@ static __always_inline bool skb_has_forbidden_rtnl_msg(struct sk_buff *skb,
             }
         }
 
-        nlh = NLMSG_NEXT(nlh, remaining);
+        const u32 aligned_len = NLMSG_ALIGN(current_nlh.nlmsg_len);
+        remaining -= aligned_len;
+        nlh = (struct nlmsghdr *)((char *)nlh + aligned_len);
 
         // technically == 0 suffices, but I don't trust netlink to not underflow
         // here...
