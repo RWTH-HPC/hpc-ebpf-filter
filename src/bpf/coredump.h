@@ -7,6 +7,8 @@
 
 // taken from coredump.h
 
+// NOLINTBEGIN
+
 #define SUID_DUMP_DISABLE 0 /* No setuid dumping */
 #define SUID_DUMP_USER 1    /* Dump as user of process */
 #define SUID_DUMP_ROOT 2    /* Dump as root */
@@ -24,7 +26,7 @@
  * value.
  */
 static __always_inline int __get_dumpable(unsigned long mm_flags) {
-    return mm_flags & MMF_DUMPABLE_MASK;
+    return (int)mm_flags & MMF_DUMPABLE_MASK;
 }
 
 static __always_inline int get_dumpable(struct mm_struct *mm) {
@@ -32,3 +34,5 @@ static __always_inline int get_dumpable(struct mm_struct *mm) {
     bpf_probe_read_kernel(&flags, sizeof(flags), &mm->flags);
     return __get_dumpable(flags);
 }
+
+// NOLINTEND
