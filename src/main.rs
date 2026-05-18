@@ -13,9 +13,11 @@ mod filter {
     include!(concat!(env!("OUT_DIR"), "/filter.skel.rs"));
 }
 mod bindings;
+mod landlock;
 
 use bindings::*;
 use filter::*;
+use landlock::*;
 
 const PIN_DIR: &str = "/sys/fs/bpf/hpc-ebpf-filter";
 
@@ -101,6 +103,8 @@ async fn main() -> Result<()> {
     pin_skel_links!(FilterLinks, skel.links, pin_dir);
 
     let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
+
+    init_landlock()?;
 
     loop {
         tokio::select! {
