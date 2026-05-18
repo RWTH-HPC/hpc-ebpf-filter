@@ -2,7 +2,7 @@ use anyhow::Result;
 use clap::Parser;
 use libbpf_rs::RingBufferBuilder;
 use libbpf_rs::skel::{OpenSkel, Skel, SkelBuilder};
-use log::info;
+use log::{error, info};
 use skel_links_pin_macro::pin_skel_links;
 use std::mem::MaybeUninit;
 use std::os::fd::BorrowedFd;
@@ -13,11 +13,11 @@ mod filter {
     include!(concat!(env!("OUT_DIR"), "/filter.skel.rs"));
 }
 mod bindings;
-mod landlock;
+mod sandbox;
 
 use bindings::*;
 use filter::*;
-use landlock::*;
+use sandbox::*;
 
 const PIN_DIR: &str = "/sys/fs/bpf/hpc-ebpf-filter";
 
@@ -104,7 +104,9 @@ async fn main() -> Result<()> {
 
     let mut sigterm = tokio::signal::unix::signal(tokio::signal::unix::SignalKind::terminate())?;
 
-    init_landlock()?;
+    if let Err(e) = init_sandbox() {
+        error!("Failed to initialize sandbox: {}", e);
+    }
 
     loop {
         tokio::select! {

@@ -4,8 +4,15 @@ use landlock::{
     RulesetStatus, Scope,
 };
 use log::info;
+use nix::unistd::{Gid, Uid, User, setgroups, setresgid, setresuid};
 
-pub fn init_landlock() -> Result<()> {
+pub fn init_sandbox() -> Result<()> {
+    drop_privs()?;
+    init_landlock()?;
+    Ok(())
+}
+
+fn init_landlock() -> Result<()> {
     let abi = landlock::ABI::V6;
     let ruleset = landlock::Ruleset::default();
     let status = ruleset
@@ -18,11 +25,32 @@ pub fn init_landlock() -> Result<()> {
         .restrict_self()?;
     match status.ruleset {
         RulesetStatus::FullyEnforced | RulesetStatus::PartiallyEnforced => {
-            info!("Landlock sandboxing enabled.");
+            info!("Landlock sandboxing enabled");
         }
         RulesetStatus::NotEnforced => {
             info!("Failed to enable landlock, is the kernel too old?");
         }
     }
+    Ok(())
+}
+
+fn drop_privs() -> Result<()> {
+    let nobody = User::from_name("nobody")?;
+    let uid = nobody
+        .as_ref()
+        .map(|user| user.uid)
+        .unwrap_or_else(|| Uid::from_raw(65534));
+    let gid = nobody
+        .as_ref()
+        .map(|user| user.gid)
+        .unwrap_or_else(|| Gid::from_raw(65534));
+    info!(
+        "Dropping privileges to user 'nobody' (uid: {}, gid: {})",
+        uid, gid
+    );
+    setgroups(&vec![])?;
+    setresgid(gid, gid, gid)?;
+    setresuid(uid, uid, uid)?;
+
     Ok(())
 }

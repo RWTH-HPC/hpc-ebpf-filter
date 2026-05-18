@@ -412,6 +412,7 @@ dependencies = [
  "libbpf-sys",
  "libc",
  "log",
+ "nix",
  "serde_json",
  "skel-links-pin-macro",
  "strum",

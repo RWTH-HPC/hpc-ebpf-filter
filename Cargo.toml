@@ -13,6 +13,7 @@ libbpf-rs = "0.26.1"
 libbpf-sys = "1.6.3"
 libc = "0.2.183"
 log = "0.4.29"
+nix = { version = "0.31.3", features = ["user"] }
 skel-links-pin-macro = { path = "skel-links-pin-macro" }
 strum = { version = "0.28.0", features = ["derive"] }
 tokio = { version = "1.50.0", features = ["rt", "macros", "signal", "net"] }
