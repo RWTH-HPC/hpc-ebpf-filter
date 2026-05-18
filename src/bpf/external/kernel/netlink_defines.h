@@ -1,6 +1,6 @@
 #pragma once
 
-#include "shared_base.h" // IWYU pragma: keep
+#include <vmlinux.h>
 
 // taken from <linux/netlink.h>
 

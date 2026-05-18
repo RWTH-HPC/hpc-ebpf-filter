@@ -5,7 +5,7 @@
 #include <bpf/bpf_core_read.h>
 #include <bpf/bpf_helpers.h>
 
-// taken from coredump.h
+// taken from <linux/sched/coredump.h>
 
 // NOLINTBEGIN
 
@@ -26,7 +26,7 @@
  * value.
  */
 static __always_inline int __get_dumpable(unsigned long mm_flags) {
-    return (int)mm_flags & MMF_DUMPABLE_MASK;
+    return mm_flags & (unsigned long)MMF_DUMPABLE_MASK;
 }
 
 static __always_inline int get_dumpable(struct mm_struct *mm) {

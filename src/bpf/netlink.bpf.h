@@ -1,11 +1,11 @@
 #pragma once
 
-#include "netlink_defines.h"
-#include "rtnetlink_defines.h"
-#include "vmlinux.h"
+#include "external/kernel/netlink_defines.h"
+#include "external/kernel/rtnetlink_defines.h"
 
 #include <bpf/bpf_core_read.h>
 #include <bpf/bpf_helpers.h>
+#include <vmlinux.h>
 
 static __always_inline bool is_readonly_rtnl_type(u16 message_type) {
     switch (message_type) {

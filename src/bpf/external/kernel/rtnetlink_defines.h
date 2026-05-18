@@ -1,6 +1,6 @@
 #pragma once
 
-#include "vmlinux.h" // IWYU pragma: keep
+#include <vmlinux.h>
 
 // taken from <linux/rtnetlink.h>
 

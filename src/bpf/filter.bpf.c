@@ -3,14 +3,14 @@
 #define __BPF_TARGET_MISSING "" // NOLINT(bugprone-reserved-identifier)
 #endif
 
-#include "iptables_defines.h"
+#include "external/kernel/iptables_defines.h"
 #ifndef ROCKY_8
 #include "netlink.bpf.h"
 #endif
 #include "common.bpf.h"
-#include "netlink_defines.h"
+#include "external/kernel/netlink_defines.h"
+#include "external/kernel/socket_defines.h"
 #include "shared.h"
-#include "socket_defines.h"
 #include "vmlinux.h"
 
 // NOLINTNEXTLINE(bugprone-suspicious-include)

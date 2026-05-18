@@ -1,9 +1,9 @@
 #pragma once
 
-#include "iptables_defines.h"
-#include "netlink_defines.h"
+#include "external/kernel/iptables_defines.h"
+#include "external/kernel/netlink_defines.h"
+#include "external/kernel/socket_defines.h"
 #include "shared_base.h" // IWYU pragma: keep
-#include "socket_defines.h"
 
 #ifndef TASK_COMM_LEN
 // not defined on older kernels

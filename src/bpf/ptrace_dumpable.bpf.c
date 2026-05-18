@@ -3,8 +3,7 @@
 #include <vmlinux.h>
 //
 #include "common.bpf.h"
-#include "coredump.h"
-#include "shared.h"
+#include "external/kernel/coredump.h"
 
 #include <asm-generic/errno-base.h>
 #include <bpf/bpf_helpers.h>
