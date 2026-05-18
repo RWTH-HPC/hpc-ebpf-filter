@@ -58,7 +58,12 @@ static __always_inline bool is_authencesn_socket(struct sockaddr *address,
 }
 
 SEC("lsm/socket_setsockopt")
-int BPF_PROG(deny_setsockopt, struct socket *sock, int level, int optname) {
+int BPF_PROG(deny_setsockopt, struct socket *sock, int level, int optname,
+             int ret) {
+    if (ret != 0) {
+        return ret;
+    }
+
     const u32 uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
     if (is_allowed_user(uid)) {
         return 0;
@@ -86,7 +91,11 @@ int BPF_PROG(deny_setsockopt, struct socket *sock, int level, int optname) {
 }
 
 SEC("lsm/netlink_send")
-int BPF_PROG(deny_netlink_send, struct sock *sk, struct sk_buff *skb) {
+int BPF_PROG(deny_netlink_send, struct sock *sk, struct sk_buff *skb, int ret) {
+    if (ret != 0) {
+        return ret;
+    }
+
     const u32 uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
     if (is_allowed_user(uid)) {
         return 0;
@@ -125,7 +134,12 @@ int BPF_PROG(deny_netlink_send, struct sock *sk, struct sk_buff *skb) {
 }
 
 SEC("lsm/socket_create")
-int BPF_PROG(deny_socket_create, int family, int type, int protocol, int kern) {
+int BPF_PROG(deny_socket_create, int family, int type, int protocol, int kern,
+             int ret) {
+    if (ret != 0) {
+        return ret;
+    }
+
     if (kern != 0) {
         return 0;
     }
@@ -176,7 +190,11 @@ int BPF_PROG(deny_socket_create, int family, int type, int protocol, int kern) {
 
 SEC("lsm/socket_bind")
 int BPF_PROG(deny_socket_bind, struct socket *sock, struct sockaddr *address,
-             int addrlen) {
+             int addrlen, int ret) {
+    if (ret != 0) {
+        return ret;
+    }
+
     const u32 uid = bpf_get_current_uid_gid() & 0xFFFFFFFF;
     if (is_allowed_user(uid)) {
         return 0;
