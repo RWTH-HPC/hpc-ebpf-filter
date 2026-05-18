@@ -45,7 +45,10 @@ int BPF_PROG(deny_ptrace_access_check, struct task_struct *child,
         bool *dumpable = bpf_task_storage_get(&USER_DUMPABLE, child, NULL, 0);
 #endif
         if (dumpable == NULL || !*dumpable) {
-            log_event(uid, PTRACE_DUMPABLE_EXPLOIT, (union OperationDetails){});
+            // this is hit legitimately by utils that list all processes
+            // (such as ps) and thus is rather noisy in practice
+            // log_event(uid, PTRACE_DUMPABLE_EXPLOIT, (union
+            // OperationDetails){});
             return -EPERM;
         }
     }
