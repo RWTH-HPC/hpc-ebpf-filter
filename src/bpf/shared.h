@@ -3,12 +3,9 @@
 #include "external/kernel/iptables_defines.h"
 #include "external/kernel/netlink_defines.h"
 #include "external/kernel/socket_defines.h"
-#include "shared_base.h" // IWYU pragma: keep
 
-#ifndef TASK_COMM_LEN
-// not defined on older kernels
+// only provided as an anon struct in newer kernels
 #define TASK_COMM_LEN 16
-#endif
 
 enum Operation : uint8_t {
     SOCKET_BIND,
