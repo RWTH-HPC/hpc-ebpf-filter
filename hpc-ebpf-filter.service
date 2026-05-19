@@ -1,6 +1,5 @@
 [Unit]
-Before=sshd.service
-Documentation=https://git-ce.rwth-aachen.de/rwth-software-stack/hpc-ebpf-filter
+Documentation=https://github.com/RWTH-HPC/hpc-ebpf-filter
 
 [Service]
 ExecStart=hpc-ebpf-filter

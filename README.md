@@ -1,40 +1,53 @@
 # HPC eBPF filter
 
-Ein eBPF-Filterprogramm, um Nutzern bestimmte kernel-Operationen zu untersagen.
+An eBPF LSM program to filter user actions on HPC systems.
 
-System-Prozesse (jene mit UID < 1000) werden nicht gefiltert.
+The aim of this project is to provide mitigations for common privilege escalation exploits in the linux kernel, without requiring operators to disable user namespaces or reboot.
 
-## iptables, nftables, sonstiges socket-Zeugs.
+By default, only UIDs >= 1000 are filtered.
 
-Folgendes wird denied:
+## iptables, nftables, iproute, other socket operations
 
-- iptables socket-Operationen
-- netlink-Operationen für:
-  - nftables,
+The following socket-related operations get denied:
+
+- iptables
+- netlink operations for:
+  - nftables
   - nflog
   - xfrm (ipsec)
-  - jegliche modifizierende NETLINK_ROUTE Operationen, u.a.
-    - Anlegen von Links und Routen, außer loopback und veth (für Container)
-    - VLANs, Tunnel
+  - any modifying NETLINK_ROUTE operation (`ip link | ip route ...`), including but not limited to:
+    - creation of links and routes, excluding on loopback and veth (this keeps rootless podman networks working)
+    - VLANs
     - tc, qdisc
-    - Änderung der Neighbor Table (ARP) und Nexthop
-- Nutzung von AF_KEY (ipsec)
-- Nutzung von AF_PACKET und das veraltete AF_INET mit SOCK_PACKET
-- Nutzung des authencesn-ciphers in AF_ALG - CVE-2026-31431
-- get_dumpable-Lücke (CVE Pending) - siehe https://github.com/0xdeadbeefnetwork/ssh-keysign-pwn
+    - ARP and nexthop settings
+- usage of AF_PACKET and the deprecated AF_INET + SOCK_PACKET
+- usage of authencesn ciphers in AF_ALG - CVE-2026-31431
+- usage of any address family that is not:
+  - AF_UNSPEC
+  - AF_UNIX
+  - AF_INET
+  - AF_INET6
+  - AF_NETLINK
+  - AF_IB
+  - AF_ALG # our site requires this for user workflows, feel free to remove
+  - AF_XDP
 
-# Nutzung
+## other misc operations
+
+- ptrace-esque operations on dead processes - CVE-2026-46333
+
+# Usage
 
 `hpc-ebpf-filter`
 
-Ausführung braucht root oder alternativ CAP_BPF
+Execution requires root. The userspace component drops permissions after the eBPF programs are loaded.
 
-Der Filter bleibt aktiv, nachdem das Programm beendet wurde!  
-Kann mit `hpc-ebpf-filter --unpin` oder `rm -rf /sys/fs/bpf/hpc-ebpf-filter` deaktiviert werden.
+The filters remain active even when the userspace component exits!
+They can be unloaded by terminating the userspace component and running `hpc-ebpf-filter --unpin` or `rm -rf /sys/fs/bpf/hpc-ebpf-filter`
 
-Jegliche denials werden geloggt.
+All denials are logged.
 
-# Dependencies & Kompilieren
+# Dependencies & compilation
 
 ## runtime
 
@@ -44,25 +57,27 @@ Jegliche denials werden geloggt.
 
 ## build
 
-- header für jene runtime dependencies
+- headers for the above libraries
 - bpftool
 - libbpf
-- clang mit bpf target
+- clang with the bpf target enabled
 - Rust >= 1.85.0
 
-Anmerkung für's bauen auf dem cluster: clang aus dem Modulsystem hat das bpf target nicht aktiviert.  
-Man müsste sich also lokal per container behelfen, oder clang aus den repo-Quellen installieren.
+build via `cargo build --release --locked`.
 
-Bauen via `cargo build --release --locked`.  
-Die binary linkt dynamisch gegen obige runtime dependencies.  
-Statisch wäre bestimmt angenehmer, habe ich noch nicht nach geschaut.
+Note that you must either unset `CC` or export `CC=clang`.
 
-# Rocky 8
+# Compatibility
 
-Auf Rocky 8 ist der Filter eingeschränkt verfügbar.
+All of the above is compatible with Rocky9 systems. Newer kernels will likely be compatible (please file issues!).
 
-Einschränkungen:
+The filters always fail loudly - the userspace program will exit with an error on incompatible systems.
 
-- Es werden keine NETLINK_ROUTE - Operationen mehr gefiltert (also insbesondere tc und qdisc)
+## Rocky 8
 
-Bauen via `cargo build --release --locked --features rocky8`
+build with `cargo build --release --locked --features rocky8`
+
+There is limited support for Rocky8 systems:
+
+- NETLINK_ROUTE operations are no longer filtered to only allow read-only ops
+- The CVE-2026-46333 mitigation won't permit dumping a SUID_DUMP_USER process
