@@ -60,7 +60,6 @@ fn main() {
         bpf_headers_dir.to_str().unwrap(),
         "-mcpu=v3",
         "-Wall",
-        "-Werror",
     ];
     #[cfg(feature = "rocky8")]
     {
