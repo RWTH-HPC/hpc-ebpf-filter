@@ -171,6 +171,7 @@ int BPF_PROG(deny_socket_create, int family, int type, int protocol, int kern,
     case AF_UNSPEC:
     case AF_UNIX:
     case AF_IB:
+    case AF_ALG:
     case AF_XDP:
         break;
     default:
