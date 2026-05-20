@@ -1,0 +1,11 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+if [[ "${1}" != "build" ]]; then
+    exit 0
+fi
+
+export HOME="${BUILDROOT}/root"
+
+curl -sSf https://sh.rustup.rs | bash -s -- -y --default-toolchain 1.95.0

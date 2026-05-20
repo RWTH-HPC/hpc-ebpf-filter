@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+export HOME=/root
+
+source "${HOME}/.cargo/env"
+
+cd "${SRCDIR}/hpc-ebpf-filter"
+cargo build --release --locked
+mkdir -p "${DESTDIR}/usr/local/bin/"
+cp target/release/hpc-ebpf-filter "${DESTDIR}/usr/local/bin/"

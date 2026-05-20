@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+ln -s /usr/libexec/qemu-kvm /usr/bin/qemu

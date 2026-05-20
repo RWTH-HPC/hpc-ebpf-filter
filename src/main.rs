@@ -23,10 +23,12 @@ const PIN_DIR: &str = "/sys/fs/bpf/hpc-ebpf-filter";
 
 #[derive(Debug, Parser)]
 struct Args {
+    /// unpin previous programs and exit
     #[arg(long)]
     unpin: bool,
-    //#[arg(long, value_name = "FILE")]
-    //allowlist: Option<PathBuf>,
+    /// test whether attaching the eBPF programs succeeds and exit
+    #[arg(long)]
+    test_attach: bool,
 }
 
 fn handle_event(data: &[u8]) -> i32 {
@@ -82,6 +84,10 @@ async fn main() -> Result<()> {
     skel.attach()?;
 
     info!("HPC eBPF filter attached");
+
+    if args.test_attach {
+        return Ok(());
+    }
 
     // Now that the new program is active, atomically replace any existing pin.
     let pin_dir = Path::new(PIN_DIR);
