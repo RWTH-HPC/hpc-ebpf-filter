@@ -135,8 +135,10 @@ jobs:
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         run: |
           set -euo pipefail
+          REPOSITORY=ghcr.io/${{ github.repository }}
+          REPOSITORY=${REPOSITORY@L}
           podman build \
-            -t ghcr.io/${{ github.repository }}:${{ matrix.distro }}-${{ matrix.release }} \
+            -t ${REPOSITORY}:${{ matrix.distro }}-${{ matrix.release }} \
             -f mkosi/runtime/Containerfile \
             --build-arg OUTPUT_DIR=${{ matrix.distro }}-${{ matrix.release }}-runtime \
             --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
@@ -147,7 +149,7 @@ jobs:
             --label "org.opencontainers.image.ref.name=${{ github.ref }}" \
             --label "org.opencontainers.image.licenses=GPL-3.0" \
             .
-          podman save --format oci-archive ghcr.io/${{ github.repository }}:${{ matrix.distro }}-${{ matrix.release }} -o target/${{ matrix.distro }}-${{ matrix.release }}-image.tar
+          podman save --format oci-archive ${REPOSITORY}:${{ matrix.distro }}-${{ matrix.release }} -o target/${{ matrix.distro }}-${{ matrix.release }}-image.tar
 
       - name: Upload container image
         if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
@@ -172,8 +174,10 @@ jobs:
       - name: Push container images
         run: |
           set -euo pipefail
+          REPOSITORY=ghcr.io/${{ github.repository }}
+          REPOSITORY=${REPOSITORY@L}
           echo ${{ secrets.GITHUB_TOKEN }} | podman login ghcr.io --username ${{ github.actor }} --password-stdin
           for IMAGE in *-image.tar; do
             podman image load --input "${IMAGE}"
-            podman push ghcr.io/${{ github.repository }}:${IMAGE%-image.tar}
+            podman push ${REPOSITORY}:${IMAGE%-image.tar}
           done
