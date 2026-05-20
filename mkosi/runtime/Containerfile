@@ -1,0 +1,4 @@
+FROM scratch
+ARG OUTPUT_DIR
+COPY target/mkosi.output/$OUTPUT_DIR/ /
+ENTRYPOINT ["/usr/local/bin/hpc-ebpf-filter"]
