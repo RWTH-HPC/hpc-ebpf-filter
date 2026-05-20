@@ -29,7 +29,6 @@ The following socket-related operations get denied:
   - AF_INET6
   - AF_NETLINK
   - AF_IB
-  - AF_ALG # our site requires this for user workflows, feel free to remove
   - AF_XDP
 
 ## other misc operations
@@ -72,6 +71,10 @@ Note that you must either unset `CC` or export `CC=clang`.
 All of the above is compatible with Rocky9 systems. Newer kernels will likely be compatible (please file issues!).
 
 The filters always fail loudly - the userspace program will exit with an error on incompatible systems.
+
+Note that AF_ALG may be required in some cases - such as util-linux >= 2.38 https://github.com/util-linux/util-linux/pull/4334  
+Operators are strongly encouraged to build their own util-linux package with the cryptoapi feature disabled.  
+Otherwise, AF_ALG can be reenabled by modifying [filter.bpf.c:deny_socket_create](src/bpf/filter.bpf.c) accordingly.
 
 ## Rocky 8
 
