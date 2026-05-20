@@ -1,6 +1,8 @@
 name: Main
 
 on:
+  push:
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -128,3 +130,50 @@ jobs:
         with:
           path: vm.log
           name: ${{ matrix.distro }}-${{ matrix.release }}-logs
+
+      - name: Build container image
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        run: |
+          set -euo pipefail
+          podman build \
+            -t ghcr.io/${{ github.repository }}:${{ matrix.distro }}-${{ matrix.release }} \
+            -f mkosi/runtime/Containerfile \
+            --build-arg OUTPUT_DIR=${{ matrix.distro }}-${{ matrix.release }}-runtime \
+            --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
+            --label "org.opencontainers.image.url=https://github.com/${{ github.repository }}" \
+            --label "org.opencontainers.image.title=hpc-ebpf-filter" \
+            --label "org.opencontainers.image.description=An eBPF LSM program to filter user actions on HPC systems" \
+            --label "org.opencontainers.image.revision=${{ github.sha }}" \
+            --label "org.opencontainers.image.ref.name=${{ github.ref }}" \
+            --label "org.opencontainers.image.licenses=GPL-3.0" \
+            .
+          podman save --format oci-archive ghcr.io/${{ github.repository }}:${{ matrix.distro }}-${{ matrix.release }} -o target/${{ matrix.distro }}-${{ matrix.release }}-image.tar
+
+      - name: Upload container image
+        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+        uses: actions/upload-artifact@v7
+        with:
+          path: target/${{ matrix.distro }}-${{ matrix.release }}-image.tar
+          archive: false
+
+  push_container_image:
+    needs: build_and_test
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Download container images
+        uses: actions/download-artifact@v8
+        with:
+          pattern: "*-image.tar"
+
+      - name: Push container images
+        run: |
+          set -euo pipefail
+          echo ${{ secrets.GITHUB_TOKEN }} | podman login ghcr.io --username ${{ github.actor }} --password-stdin
+          for IMAGE in *-image.tar; do
+            podman image load --input "${IMAGE}"
+            podman push ghcr.io/${{ github.repository }}:${IMAGE%-image.tar}
+          done
