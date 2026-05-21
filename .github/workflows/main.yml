@@ -38,18 +38,19 @@ jobs:
       matrix:
         include:
           - distro: rocky
-            release: 9.7
+            release: "10.1"
             mirror: https://dl.rockylinux.org/pub/rocky
           - distro: rocky
-            release: 9.6
+            release: "9.7"
+            mirror: https://dl.rockylinux.org/pub/rocky
+          - distro: rocky
+            release: "9.6"
             mirror: https://dl.rockylinux.org/vault/rocky
       fail-fast: false
     needs: build_mkosi_tools
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
-
-      - run: sudo apt-get update
 
       - uses: systemd/mkosi@v26
 

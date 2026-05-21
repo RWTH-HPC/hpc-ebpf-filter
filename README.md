@@ -35,6 +35,14 @@ The following socket-related operations get denied:
 
 - ptrace-esque operations on dead processes - CVE-2026-46333
 
+# Installation
+
+There are prebuilt container images available at `ghcr.io/rwth-hpc/hpc-ebpf-filter:$DISTRO`.  
+See [Supported Distributions](#supported-distributions) for the distro tags.  
+Execution requires root via `podman run --privileged=true ...`.
+
+There are no prebuilt images for rocky-8.10 due to issues with getting a VM to boot in CI :/
+
 # Usage
 
 `hpc-ebpf-filter`
@@ -62,15 +70,29 @@ All denials are logged.
 - clang with the bpf target enabled
 - Rust >= 1.85.0
 
-build via `cargo build --release --locked`.
+Build via `cargo build --release --locked`.  
+See also [Supported Distributions](#supported-distributions) to compile for a specific distro kernel.
 
 Note that you must either unset `CC` or export `CC=clang`.
 
 # Compatibility
 
-All of the above is compatible with Rocky9 systems. Newer kernels will likely be compatible (please file issues!).
+## Supported Distributions
 
-The filters always fail loudly - the userspace program will exit with an error on incompatible systems.
+The following distributions are currently tested:
+
+- rocky-10.1
+- rocky-9.7
+- rocky-9.6
+- rocky-8.10
+
+It is **strongly recommended** to build for the specific distribution via `RUSTFLAGS="--cfg distro=\"$DISTRO\"" cargo build --release --locked`, e.g. `RUSTFLAGS="--cfg distro=\"rocky-8.10\"" ...`.
+
+## General
+
+All of the above is compatible with Rocky9 kernels. Newer kernels will likely be compatible (please file issues!).
+
+The filters always fail loudly - the userspace program will exit with an error on incompatible kernels.
 
 Note that AF_ALG may be required in some cases - such as util-linux >= 2.38 https://github.com/util-linux/util-linux/pull/4334  
 Operators are strongly encouraged to build their own util-linux package with the cryptoapi feature disabled.  
@@ -78,9 +100,7 @@ Otherwise, AF_ALG can be reenabled by modifying [filter.bpf.c:deny_socket_create
 
 ## Rocky 8
 
-build with `cargo build --release --locked --features rocky8`
-
-There is limited support for Rocky8 systems:
+There is limited support for Rocky8 kernels:
 
 - NETLINK_ROUTE operations are no longer filtered to only allow read-only ops
 - The CVE-2026-46333 mitigation won't permit dumping a SUID_DUMP_USER process
