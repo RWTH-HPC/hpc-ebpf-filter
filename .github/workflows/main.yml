@@ -234,6 +234,7 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           pattern: "*-image.tar"
+          merge-multiple: true
 
       - name: Push container images
         run: |
