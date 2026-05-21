@@ -1,10 +1,40 @@
 use bindgen::callbacks::{DeriveInfo, ParseCallbacks, TypeKind};
 use libbpf_cargo::SkeletonBuilder;
+use log::warn;
 use std::{
     env, fs,
     path::{Path, PathBuf},
     process::Command,
 };
+
+use strum::{IntoEnumIterator, VariantNames};
+
+#[derive(
+    Debug,
+    PartialEq,
+    strum_macros::EnumString,
+    strum_macros::EnumIter,
+    strum_macros::Display,
+    strum_macros::VariantNames,
+)]
+enum Distro {
+    #[strum(serialize = "rocky-8")]
+    Rocky8,
+    #[strum(serialize = "rocky-9")]
+    Rocky9,
+    #[strum(serialize = "rocky-10")]
+    Rocky10,
+}
+
+impl Distro {
+    fn c_define(&self) -> Option<&'static str> {
+        match self {
+            Distro::Rocky8 => Some("-DROCKY_8"),
+            Distro::Rocky9 => Some("-DROCKY_9"),
+            Distro::Rocky10 => Some("-DROCKY_10"),
+        }
+    }
+}
 
 const SRC: &str = "src/bpf/filter.bpf.c";
 const SHARED_HEADER: &str = "src/bpf/shared.h";
@@ -51,7 +81,12 @@ fn main() {
         println!("Using existing vmlinux.h at {:?}", vmlinux_path);
     }
 
-    #[allow(unused_mut)]
+    let mut distro_str = std::env::var("CARGO_CFG_DISTRO").unwrap_or_default();
+    if distro_str.starts_with("rocky") {
+        // normalize rocky-x.y to rocky-x
+        distro_str = distro_str.split(".").next().unwrap().to_string();
+    }
+
     let mut extra_clang_args = vec![
         // generated vmlinux.h is incompatible with C23 native bool as of 2026 :(
         "-std=gnu17",
@@ -59,14 +94,29 @@ fn main() {
         "-isystem",
         bpf_headers_dir.to_str().unwrap(),
         "-mcpu=v3",
+        "--target=bpf",
         "-Wall",
     ];
-    #[cfg(feature = "rocky8")]
-    {
-        extra_clang_args.push("-DROCKY_8");
+
+    let mut found = false;
+    for d in Distro::iter() {
+        if d.to_string() == distro_str {
+            found = true;
+            if let Some(def) = d.c_define() {
+                extra_clang_args.push(def);
+            }
+        }
+    }
+
+    if !found {
+        let options = Distro::VARIANTS.join(", ");
+        warn!(
+            "Invalid (or missing) distro cfg selected: {:?}. Valid options are {}.",
+            distro_str, options
+        );
     }
     generate_compile_commands(&extra_clang_args);
-    generate_bindings(&bpf_headers_dir, &out_dir);
+    generate_bindings(&out_dir, &extra_clang_args);
 
     // Build the BPF skeleton
     let mut skel_path = out_dir.clone();
@@ -105,7 +155,7 @@ fn generate_compile_commands(extra_clang_args: &Vec<&str>) {
         .join("target")
         .join("compile_commands.json");
 
-    let mut args = vec!["clang", "-target", "bpf", "-g", "-O2"];
+    let mut args = vec!["clang", "-g", "-O2"];
     args.extend(extra_clang_args.iter().cloned());
     args.extend(["-c", src_file.to_str().unwrap()]);
     // Build the clang command that matches what libbpf-cargo uses
@@ -129,7 +179,7 @@ fn generate_compile_commands(extra_clang_args: &Vec<&str>) {
     );
 }
 
-fn generate_bindings(bpf_headers_dir: &Path, out_dir: &Path) {
+fn generate_bindings(out_dir: &Path, extra_clang_args: &Vec<&str>) {
     let project_root = env::var("CARGO_MANIFEST_DIR").expect("CARGO_MANIFEST_DIR not set");
     let header_path = PathBuf::from(&project_root).join(SHARED_HEADER);
     let header_nobpf_path = PathBuf::from(&project_root).join(SHARED_NOBPF_HEADER);
@@ -146,18 +196,6 @@ fn generate_bindings(bpf_headers_dir: &Path, out_dir: &Path) {
                 _ => Vec::new(),
             }
         }
-    }
-
-    #[allow(unused_mut)]
-    let mut extra_clang_args = vec![
-        "-target",
-        "bpf",
-        "-isystem",
-        bpf_headers_dir.to_str().unwrap(),
-    ];
-    #[cfg(feature = "rocky8")]
-    {
-        extra_clang_args.push("-DROCKY_8");
     }
 
     let bindings = bindgen::Builder::default()

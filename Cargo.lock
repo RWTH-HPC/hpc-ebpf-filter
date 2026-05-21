@@ -416,6 +416,7 @@ dependencies = [
  "serde_json",
  "skel-links-pin-macro",
  "strum",
+ "strum_macros",
  "tokio",
 ]
 

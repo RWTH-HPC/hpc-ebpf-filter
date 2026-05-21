@@ -10,7 +10,13 @@
 #endif
 #endif
 
+// idk how to handle compile_commands for this header,
+// as it's not used in any TU
+#ifdef CLANG_TIDY
+#define uint16_t unsigned short
+#else
 #include <stdint.h>
+#endif
 
 // taken from <linux/rnetlink.h>
 
