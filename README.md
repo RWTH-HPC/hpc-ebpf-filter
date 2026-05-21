@@ -85,6 +85,8 @@ The following distributions are currently tested:
 - rocky-9.7
 - rocky-9.6
 - rocky-8.10
+- ubuntu-26.04
+- ubuntu-24.04
 
 It is **strongly recommended** to build for the specific distribution via `RUSTFLAGS="--cfg distro=\"$DISTRO\"" cargo build --release --locked`, e.g. `RUSTFLAGS="--cfg distro=\"rocky-8.10\"" ...`.
 

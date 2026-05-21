@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+set -xeuo pipefail
+
+export HOME=/root
+
+if [[ "${1}" != "build" ]]; then
+    exit 0
+fi
+
+case "${RELEASE}" in
+    "noble") ln -sf "$(which clang-20)" /usr/bin/clang ;;
+    "resolute") ln -sf "$(which clang-22)" /usr/bin/clang ;;
+esac
