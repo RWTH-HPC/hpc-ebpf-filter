@@ -157,7 +157,7 @@ rtattr_linkinfo_is_lo_or_veth(const struct rtattr *rta) {
     bool has_seen_veth_or_lo = false;
     bool has_seen_non_veth_or_lo = false;
 
-    int nested_len = rta->rta_len - (u8)RTA_ALIGN(sizeof(struct rtattr));
+    u16 nested_len = rta->rta_len - (u8)RTA_ALIGN(sizeof(struct rtattr));
     const struct rtattr *nested = RTA_DATA(rta);
 
     struct bpf_iter_num iter_nest;

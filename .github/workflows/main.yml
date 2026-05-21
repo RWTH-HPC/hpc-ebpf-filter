@@ -39,6 +39,10 @@ jobs:
         include:
           - distro: rocky
             release: 9.7
+            mirror: https://dl.rockylinux.org/pub/rocky
+          - distro: rocky
+            release: 9.6
+            mirror: https://dl.rockylinux.org/vault/rocky
       fail-fast: false
     needs: build_mkosi_tools
     runs-on: ubuntu-latest
@@ -68,24 +72,54 @@ jobs:
       - name: Build VM
         run: |
           set -euo pipefail
-          mkosi -C mkosi/vm --distribution ${{ matrix.distro }} --release ${{ matrix.release }} genkey
-          mkosi -C mkosi/vm --distribution ${{ matrix.distro }} --release ${{ matrix.release }} build
+          mkosi \
+            -C mkosi/vm \
+            --distribution ${{ matrix.distro }} \
+            --release ${{ matrix.release }} \
+            --mirror ${{ matrix.mirror }} \
+            genkey
+          mkosi \
+            -C mkosi/vm \
+            --distribution ${{ matrix.distro }} \
+            --release ${{ matrix.release }} \
+            --mirror ${{ matrix.mirror }} \
+            build
 
       - name: Generate vmlinux.h
         run: |
           set -euo pipefail
           mkdir -p target/bpf_headers
-          sudo mkosi -C mkosi/vm --distribution ${{ matrix.distro }} --release ${{ matrix.release }} vm >> vm.log 2>&1 &
+          sudo mkosi \
+            -C mkosi/vm \
+            --distribution ${{ matrix.distro }} \
+            --release ${{ matrix.release }} \
+            --mirror ${{ matrix.mirror }} \
+            vm >> vm.log 2>&1 &
           VM_PID=$!
-          until sudo mkosi -C mkosi/vm --distribution ${{ matrix.distro }} --release ${{ matrix.release }} ssh -- true; do
+          until sudo mkosi \
+            -C mkosi/vm \
+            --distribution ${{ matrix.distro }} \
+            --release ${{ matrix.release }} \
+            --mirror ${{ matrix.mirror }} \
+            ssh -- true; do
             sleep 1
             if ! ps -p ${VM_PID} > /dev/null; then
                 echo "VM failed to start"
                 exit 1
             fi
           done
-          sudo mkosi -C mkosi/vm --distribution ${{ matrix.distro }} --release ${{ matrix.release }} ssh -- bpftool btf dump file /sys/kernel/btf/vmlinux format c > target/bpf_headers/vmlinux.h
-          sudo mkosi -C mkosi/vm --distribution ${{ matrix.distro }} --release ${{ matrix.release }} ssh -- systemctl poweroff
+          sudo mkosi \
+            -C mkosi/vm \
+            --distribution ${{ matrix.distro }} \
+            --release ${{ matrix.release }} \
+            --mirror ${{ matrix.mirror }} \
+            ssh -- bpftool btf dump file /sys/kernel/btf/vmlinux format c > target/bpf_headers/vmlinux.h
+          sudo mkosi \
+            -C mkosi/vm \
+            --distribution ${{ matrix.distro }} \
+            --release ${{ matrix.release }} \
+            --mirror ${{ matrix.mirror }} \
+            ssh -- systemctl poweroff
           wait ${VM_PID}
 
       - name: Upload vmlinux.h
@@ -98,23 +132,53 @@ jobs:
       - name: Build program
         run: |
           set -euo pipefail
-          mkosi -C mkosi/runtime --distribution ${{ matrix.distro }} --release ${{ matrix.release }} build
+          mkosi \
+            -C mkosi/runtime \
+            --distribution ${{ matrix.distro }} \
+            --release ${{ matrix.release }} \
+            --mirror ${{ matrix.mirror }} \
+            build
 
       - name: Test attaching
         run: |
           set -euo pipefail
-          sudo mkosi -C mkosi/vm --distribution ${{ matrix.distro }} --release ${{ matrix.release }} vm >> vm.log 2>&1 &
+          sudo mkosi \
+            -C mkosi/vm \
+            --distribution ${{ matrix.distro }} \
+            --release ${{ matrix.release }} \
+            --mirror ${{ matrix.mirror }} \
+            vm >> vm.log 2>&1 &
           VM_PID=$!
-          until sudo mkosi -C mkosi/vm --distribution ${{ matrix.distro }} --release ${{ matrix.release }} ssh -- true; do
+          until sudo mkosi \
+            -C mkosi/vm \
+            --distribution ${{ matrix.distro }} \
+            --release ${{ matrix.release }} \
+            --mirror ${{ matrix.mirror }} \
+            ssh -- true; do
             sleep 1
             if ! ps -p ${VM_PID} > /dev/null; then
                 echo "VM failed to start"
                 exit 1
             fi
           done
-          sudo mkosi -C mkosi/vm --distribution ${{ matrix.distro }} --release ${{ matrix.release }} ssh -- "cat > /usr/local/bin/hpc-ebpf-filter && chmod +x /usr/local/bin/hpc-ebpf-filter" < target/mkosi.output/${{ matrix.distro }}-${{ matrix.release }}-runtime/usr/local/bin/hpc-ebpf-filter
-          sudo mkosi -C mkosi/vm --distribution ${{ matrix.distro }} --release ${{ matrix.release }} ssh -- /usr/local/bin/hpc-ebpf-filter --test-attach
-          sudo mkosi -C mkosi/vm --distribution ${{ matrix.distro }} --release ${{ matrix.release }} ssh -- systemctl poweroff
+          sudo mkosi \
+            -C mkosi/vm \
+            --distribution ${{ matrix.distro }} \
+            --release ${{ matrix.release }} \
+            --mirror ${{ matrix.mirror }} \
+            ssh -- "cat > /usr/local/bin/hpc-ebpf-filter && chmod +x /usr/local/bin/hpc-ebpf-filter" < target/mkosi.output/${{ matrix.distro }}-${{ matrix.release }}-runtime/usr/local/bin/hpc-ebpf-filter
+          sudo mkosi \
+            -C mkosi/vm \
+            --distribution ${{ matrix.distro }} \
+            --release ${{ matrix.release }} \
+            --mirror ${{ matrix.mirror }} \
+            ssh -- /usr/local/bin/hpc-ebpf-filter --test-attach
+          sudo mkosi \
+            -C mkosi/vm \
+            --distribution ${{ matrix.distro }} \
+            --release ${{ matrix.release }} \
+            --mirror ${{ matrix.mirror }} \
+            ssh -- systemctl poweroff
           wait ${VM_PID}
 
       - name: Upload program
