@@ -24,6 +24,10 @@ enum Distro {
     Rocky9,
     #[strum(serialize = "rocky-10")]
     Rocky10,
+    #[strum(serialize = "ubuntu-26.04")]
+    Ubuntu2604,
+    #[strum(serialize = "ubuntu-24.04")]
+    Ubuntu2404,
 }
 
 impl Distro {
@@ -32,6 +36,8 @@ impl Distro {
             Distro::Rocky8 => Some("-DROCKY_8"),
             Distro::Rocky9 => Some("-DROCKY_9"),
             Distro::Rocky10 => Some("-DROCKY_10"),
+            Distro::Ubuntu2604 => Some("-DUBUNTU_26_04"),
+            Distro::Ubuntu2404 => Some("-DUBUNTU_24_04"),
         }
     }
 }
@@ -110,6 +116,15 @@ fn main() {
 
     if !found {
         let options = Distro::VARIANTS.join(", ");
+
+        // TODO: we should probably have a --fail-on-unknown-distro toggle
+        if std::env::var("GITHUB_ACTIONS").is_ok() {
+            panic!(
+                "Invalid (or missing) distro cfg selected in GitHub Actions: {:?}. Valid options are: {}.",
+                distro_str, options
+            );
+        }
+
         warn!(
             "Invalid (or missing) distro cfg selected: {:?}. Valid options are {}.",
             distro_str, options

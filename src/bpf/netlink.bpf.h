@@ -158,11 +158,15 @@ rtattr_linkinfo_is_lo_or_veth(const struct rtattr *rta) {
     bool has_seen_non_veth_or_lo = false;
 
     u16 nested_len = rta->rta_len - (u8)RTA_ALIGN(sizeof(struct rtattr));
+    if (nested_len > 8192) {
+        return false;
+    }
     const struct rtattr *nested = RTA_DATA(rta);
 
+    const u32 max_nested_iters = (nested_len / sizeof(struct rtattr)) + 1;
+
     struct bpf_iter_num iter_nest;
-    bpf_iter_num_new(&iter_nest, 0,
-                     (nested_len / (u8)sizeof(struct rtattr)) + 1);
+    bpf_iter_num_new(&iter_nest, 0, (int)max_nested_iters);
 
     while (bpf_iter_num_next(&iter_nest)) {
         struct rtattr current_nested;
@@ -263,10 +267,10 @@ static __always_inline bool skb_has_forbidden_rtnl_msg(struct sk_buff *skb,
     // skb size is soft-capped to 8 KiB
     // in practice, this means 512 iterations at max,
     // but there's no written guarantee
-    const u32 num_iters = (remaining / sizeof(struct nlmsghdr)) + 1;
-    if (num_iters > __INT_MAX__) {
+    if (remaining > 8192) {
         return true;
     }
+    const u32 num_iters = (remaining / sizeof(struct nlmsghdr)) + 1;
 
     if (!nlh || remaining == 0) {
         return false;
