@@ -19,11 +19,20 @@ jobs:
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
+      - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        id: cache
+        with:
+          path: target/mkosi.tools.${{ matrix.distro }}.tar.gz
+          key: mkosi-tools-${{ runner.arch }}-${{ matrix.distro }}-${{ hashFiles('mkosi/tools/**') }}
+
       - run: sudo apt-get update
+        if: steps.cache.outputs.cache-hit != 'true'
 
       - uses: systemd/mkosi@84af20892b61c8e177e391f997ded8b4cb5514f2 # v26
+        if: steps.cache.outputs.cache-hit != 'true'
 
       - name: Build mkosi tools
+        if: steps.cache.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           mkosi -C mkosi/tools/${{ matrix.distro }} build
@@ -71,6 +80,7 @@ jobs:
           fi
 
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
       - uses: systemd/mkosi@84af20892b61c8e177e391f997ded8b4cb5514f2 # v26
 
       - name: Setup systemd-machined
@@ -89,7 +99,20 @@ jobs:
         run: |
           sudo tar -xzf target/mkosi.tools.${{ matrix.distro }}.tar.gz
 
+      - uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        id: cache-vm
+        with:
+          path: |
+            target/mkosi.output/${{ matrix.distro }}-${{ env.MKOSI_RELEASE }}-vm
+            target/mkosi.output/${{ matrix.distro }}-${{ env.MKOSI_RELEASE }}-vm.initrd
+            target/mkosi.output/${{ matrix.distro }}-${{ env.MKOSI_RELEASE }}-vm.raw
+            target/mkosi.output/${{ matrix.distro }}-${{ env.MKOSI_RELEASE }}-vm.vmlinuz
+            mkosi/vm/mkosi.crt
+            mkosi/vm/mkosi.key
+          key: mkosi-vm-${{ runner.arch }}-${{ matrix.distro }}-${{ matrix.release }}-${{ hashFiles('mkosi/base.conf', 'mkosi/vm/**') }}-${{ hashFiles('target/mkosi.tools.*.tar.gz') }}
+
       - name: Build VM
+        if: steps.cache-vm.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           mkosi \
