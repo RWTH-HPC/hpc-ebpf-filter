@@ -1,0 +1,9 @@
+#!/usr/bin/env bash
+
+# see https://github.com/systemd/mkosi/issues/3842
+
+set -xeuo pipefail
+
+dnf5 \
+    --assumeyes --best --releasever="${RELEASE}" --installroot=/buildroot --setopt=keepcache=1 --setopt=logdir=/var/log --setopt=cachedir=/var/cache/libdnf5 --setopt=install_weak_deps=0 --setopt=check_config_file_age=0 --setopt=persistdir=/buildroot/var/lib/dnf --setopt=debuglevel=10 --setopt=metadata_expire=never --setopt=cacheonly=metadata --no-docs --use-host-config --setopt=proxy_sslcacert=/proxy.cacert \
+    install -y kernel
