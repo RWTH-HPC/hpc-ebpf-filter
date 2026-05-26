@@ -9,7 +9,7 @@
 #include <bpf/bpf_helpers.h>
 #include <bpf/bpf_tracing.h>
 
-#ifndef ROCKY_8
+#ifndef HEF_DISTRO_ROCKY_8
 struct {
     __uint(type, BPF_MAP_TYPE_TASK_STORAGE);
     __uint(map_flags, BPF_F_NO_PREALLOC);
@@ -18,9 +18,10 @@ struct {
 } USER_DUMPABLE SEC(".maps");
 #endif
 
-#ifndef ROCKY_8
+#ifndef HEF_DISTRO_ROCKY_8
 SEC("fentry/exit_mm_release")
-int BPF_PROG(exit_mm_record_ptrace, struct task_struct *task) {
+int BPF_PROG(exit_mm_record_ptrace, struct task_struct *task,
+             struct mm_struct *mm) {
     bool dumpable = get_dumpable(task->mm) == SUID_DUMP_USER;
     bpf_task_storage_get(&USER_DUMPABLE, task, &dumpable,
                          BPF_LOCAL_STORAGE_GET_F_CREATE);
@@ -38,7 +39,7 @@ int BPF_PROG(deny_ptrace_access_check, struct task_struct *child,
     }
 
     if (child->mm == NULL) {
-#ifdef ROCKY_8
+#ifdef HEF_DISTRO_ROCKY_8
         bool *dumpable = NULL;
 #else
         bool *dumpable = bpf_task_storage_get(&USER_DUMPABLE, child, NULL, 0);

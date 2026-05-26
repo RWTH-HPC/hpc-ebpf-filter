@@ -4,7 +4,7 @@
 #endif
 
 #include "external/kernel/iptables_defines.h"
-#ifndef ROCKY_8
+#ifndef HEF_DISTRO_ROCKY_8
 #include "netlink.bpf.h"
 #endif
 #include "common.bpf.h"
@@ -109,7 +109,7 @@ int BPF_PROG(deny_netlink_send, struct sock *sk, struct sk_buff *skb, int ret) {
     const u16 protocol = BPF_CORE_READ_BITFIELD(sk, sk_protocol);
     switch (protocol) {
     case NETLINK_ROUTE:
-#ifndef ROCKY_8
+#ifndef HEF_DISTRO_ROCKY_8
         if (skb_has_forbidden_rtnl_msg(skb, &netlink_message_type)) {
             denied = true;
         }

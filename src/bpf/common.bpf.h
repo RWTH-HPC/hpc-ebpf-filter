@@ -11,7 +11,8 @@ struct {
     __uint(type, BPF_MAP_TYPE_RINGBUF);
     __uint(key_size, 0);
     __uint(value_size, 0);
-    __uint(max_entries, 4096);
+    __uint(max_entries, 65536); // ringbuf must be page_size * 2^n,
+                                // 64KiB is the biggest native page size
 } EVENTS SEC(".maps");
 
 static __always_inline bool is_allowed_user(u32 uid) { return uid < 1000; }
