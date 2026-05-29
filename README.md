@@ -81,7 +81,9 @@ Note that you must either unset `CC` or export `CC=clang`.
 
 The following distributions are currently tested:
 
+- rocky-10.2
 - rocky-10.1
+- rocky-9.8
 - rocky-9.7
 - rocky-9.6
 - rocky-8.10

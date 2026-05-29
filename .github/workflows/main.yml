@@ -50,7 +50,13 @@ jobs:
       matrix:
         include:
           - distro: rocky
+            release: "10.2"
+            mirror: https://dl.rockylinux.org/pub/rocky
+          - distro: rocky
             release: "10.1"
+            mirror: https://dl.rockylinux.org/pub/rocky
+          - distro: rocky
+            release: "9.8"
             mirror: https://dl.rockylinux.org/pub/rocky
           - distro: rocky
             release: "9.7"
