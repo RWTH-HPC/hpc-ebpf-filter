@@ -17,7 +17,7 @@ jobs:
         distro: [rocky, ubuntu]
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: cache
@@ -85,7 +85,7 @@ jobs:
             echo "MKOSI_RELEASE=${{ matrix.release }}" >> $GITHUB_ENV
           fi
 
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - uses: systemd/mkosi@84af20892b61c8e177e391f997ded8b4cb5514f2 # v26
 
