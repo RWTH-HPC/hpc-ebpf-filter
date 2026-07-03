@@ -62,6 +62,10 @@ impl Display for Event {
             Operation::PTRACE_DUMPABLE_EXPLOIT => {
                 // No additional details to decode for this operation
             }
+            Operation::FILE_IOCTL => {
+                let file_ioctl = unsafe { self.operation_details.file_ioctl };
+                write!(f, " cmd={:#010x}", file_ioctl.cmd)?;
+            }
         }
 
         write!(

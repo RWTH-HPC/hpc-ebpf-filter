@@ -15,6 +15,8 @@
 
 // NOLINTNEXTLINE(bugprone-suspicious-include)
 #include "ptrace_dumpable.bpf.c" // IWYU pragma: keep
+// NOLINTNEXTLINE(bugprone-suspicious-include)
+#include "ioctl.bpf.c" // IWYU pragma: keep
 
 #include <asm-generic/errno-base.h>
 #include <bpf/bpf_core_read.h>

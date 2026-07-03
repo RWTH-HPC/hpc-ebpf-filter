@@ -34,6 +34,7 @@ The following socket-related operations get denied:
 ## other misc operations
 
 - ptrace-esque operations on dead processes - CVE-2026-46333
+- DRM_IOCTL_GEM_CHANGE_HANDLE ioctl - CVE-2026-46215
 
 # Installation
 
