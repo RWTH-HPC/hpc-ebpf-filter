@@ -54,13 +54,13 @@ jobs:
             mirror: https://dl.rockylinux.org/pub/rocky
           - distro: rocky
             release: "10.1"
-            mirror: https://dl.rockylinux.org/pub/rocky
+            mirror: https://dl.rockylinux.org/vault/rocky
           - distro: rocky
             release: "9.8"
             mirror: https://dl.rockylinux.org/pub/rocky
           - distro: rocky
             release: "9.7"
-            mirror: https://dl.rockylinux.org/pub/rocky
+            mirror: https://dl.rockylinux.org/vault/rocky
           - distro: rocky
             release: "9.6"
             mirror: https://dl.rockylinux.org/vault/rocky
