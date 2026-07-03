@@ -1,0 +1,6 @@
+#!/usr/bin/env bash
+
+set -xeuo pipefail
+
+# Ubuntu occasionally fails to start this even though the device exists?
+systemctl mask dev-hvc0.device

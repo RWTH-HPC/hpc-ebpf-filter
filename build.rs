@@ -33,11 +33,35 @@ enum Distro {
 impl Distro {
     fn c_define(&self) -> Option<&'static str> {
         match self {
-            Distro::Rocky8 => Some("-DROCKY_8"),
-            Distro::Rocky9 => Some("-DROCKY_9"),
-            Distro::Rocky10 => Some("-DROCKY_10"),
-            Distro::Ubuntu2604 => Some("-DUBUNTU_26_04"),
-            Distro::Ubuntu2404 => Some("-DUBUNTU_24_04"),
+            Distro::Rocky8 => Some("-DHEF_DISTRO_ROCKY_8"),
+            Distro::Rocky9 => Some("-DHEF_DISTRO_ROCKY_9"),
+            Distro::Rocky10 => Some("-DHEF_DISTRO_ROCKY_10"),
+            Distro::Ubuntu2604 => Some("-DHEF_DISTRO_UBUNTU_26_04"),
+            Distro::Ubuntu2404 => Some("-DHEF_DISTRO_UBUNTU_24_04"),
+        }
+    }
+}
+
+#[derive(
+    Debug,
+    PartialEq,
+    strum_macros::EnumString,
+    strum_macros::EnumIter,
+    strum_macros::Display,
+    strum_macros::VariantNames,
+)]
+enum Arch {
+    #[strum(serialize = "x86_64")]
+    X86_64,
+    #[strum(serialize = "aarch64")]
+    Arm64,
+}
+
+impl Arch {
+    fn c_define(&self) -> Option<&'static str> {
+        match self {
+            Arch::X86_64 => Some("-DHEF_ARCH_x86_64"),
+            Arch::Arm64 => Some("-DHEF_ARCH_arm64"),
         }
     }
 }
@@ -130,6 +154,15 @@ fn main() {
             distro_str, options
         );
     }
+
+    let arch_str = std::env::var("CARGO_CFG_TARGET_ARCH").unwrap();
+    let arch = arch_str
+        .parse::<Arch>()
+        .expect("Unsupported target architecture");
+    if let Some(def) = arch.c_define() {
+        extra_clang_args.push(def);
+    }
+
     generate_compile_commands(&extra_clang_args);
     generate_bindings(&out_dir, &extra_clang_args);
 

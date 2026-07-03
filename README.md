@@ -93,6 +93,8 @@ The following distributions are currently tested:
 
 It is **strongly recommended** to build for the specific distribution via `RUSTFLAGS="--cfg distro=\"$DISTRO\"" cargo build --release --locked`, e.g. `RUSTFLAGS="--cfg distro=\"rocky-8.10\"" ...`.
 
+x86-64 and arm64 are explicitly tested in CI. Other arches are likely to work.
+
 ## General
 
 All of the above is compatible with Rocky9 kernels. Newer kernels will likely be compatible (please file issues!).

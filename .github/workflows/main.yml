@@ -15,15 +15,20 @@ jobs:
     strategy:
       matrix:
         distro: [rocky, ubuntu]
-    runs-on: ubuntu-latest
+        arch:
+          - name: x86-64
+            runs-on: ubuntu-24.04
+          - name: arm64
+            runs-on: ubuntu-24.04-arm
+    runs-on: ${{ matrix.arch.runs-on }}
     steps:
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
 
       - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         id: cache
         with:
-          path: target/mkosi.tools.${{ matrix.distro }}.tar.gz
-          key: mkosi-tools-${{ runner.arch }}-${{ matrix.distro }}-${{ hashFiles('mkosi/tools/**') }}
+          path: target/mkosi.output/${{ matrix.arch.name }}-${{ matrix.distro }}-tools.tar.gz
+          key: mkosi-tools-${{ matrix.arch.name }}-${{ matrix.distro }}-${{ hashFiles('mkosi/base.conf', 'mkosi/tools/**') }}
 
       - run: sudo apt-get update
         if: steps.cache.outputs.cache-hit != 'true'
@@ -35,54 +40,62 @@ jobs:
         if: steps.cache.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
-          mkosi -C mkosi/tools/${{ matrix.distro }} build
-          sudo tar -czf target/mkosi.tools.${{ matrix.distro }}.tar.gz target/mkosi.tools
+          mkosi -C mkosi/tools --distribution ${{ matrix.distro }} build
+          sudo tar -czf target/mkosi.output/${{ matrix.arch.name }}-${{ matrix.distro }}-tools.tar.gz target/mkosi.output/${{ matrix.arch.name }}-${{ matrix.distro }}-tools
 
       - name: Upload mkosi tools
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          path: target/mkosi.tools.${{ matrix.distro }}.tar.gz
+          path: target/mkosi.output/${{ matrix.arch.name }}-${{ matrix.distro }}-tools.tar.gz
           if-no-files-found: error
           archive: false
 
   build_and_test:
     strategy:
       matrix:
-        include:
-          - distro: rocky
+        arch:
+          - name: x86-64
+            runs-on: ubuntu-24.04
+          - name: arm64
+            runs-on: ubuntu-24.04-arm
+        distro:
+          - name: rocky
             release: "10.2"
             mirror: https://dl.rockylinux.org/pub/rocky
-          - distro: rocky
+          - name: rocky
             release: "10.1"
             mirror: https://dl.rockylinux.org/vault/rocky
-          - distro: rocky
+          - name: rocky
             release: "9.8"
             mirror: https://dl.rockylinux.org/pub/rocky
-          - distro: rocky
+          - name: rocky
             release: "9.7"
             mirror: https://dl.rockylinux.org/vault/rocky
-          - distro: rocky
+          - name: rocky
             release: "9.6"
             mirror: https://dl.rockylinux.org/vault/rocky
-          - distro: ubuntu
+          - name: ubuntu
             release: "26.04"
-            mirror: http://archive.ubuntu.com/ubuntu
-          - distro: ubuntu
+          - name: ubuntu
             release: "24.04"
-            mirror: http://archive.ubuntu.com/ubuntu
       fail-fast: false
     needs: build_mkosi_tools
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.arch.runs-on }}
     steps:
       - name: Configure env vars
         run: |
-          if [[ "${{ matrix.distro }}" == "ubuntu" ]]; then
-            case ${{ matrix.release }} in
+          if [[ "${{ matrix.distro.name }}" == "ubuntu" ]]; then
+            case ${{ matrix.distro.release }} in
               "26.04") echo "MKOSI_RELEASE=resolute" >> $GITHUB_ENV ;;
               "24.04") echo "MKOSI_RELEASE=noble" >> $GITHUB_ENV ;;
             esac
           else
-            echo "MKOSI_RELEASE=${{ matrix.release }}" >> $GITHUB_ENV
+            echo "MKOSI_RELEASE=${{ matrix.distro.release }}" >> $GITHUB_ENV
+          fi
+          if [[ -n "${{ matrix.distro.mirror }}" ]]; then
+            echo MKOSI_MIRROR_ARG="--mirror ${{ matrix.distro.mirror }}" >> $GITHUB_ENV
+          else
+            echo MKOSI_MIRROR_ARG="" >> $GITHUB_ENV
           fi
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0 # v7.0.0
@@ -92,65 +105,68 @@ jobs:
       - name: Setup systemd-machined
         run: |
           set -euo pipefail
+          sudo apt-get update
           sudo apt-get install -y --no-install-recommends systemd-container
           sudo systemctl start systemd-machined
 
       - name: Download mkosi tools
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
         with:
-          name: mkosi.tools.${{ matrix.distro }}.tar.gz
-          path: target/
+          name: ${{ matrix.arch.name }}-${{ matrix.distro.name }}-tools.tar.gz
+          path: target/mkosi.output/
 
       - name: Extract mkosi tools
         run: |
-          sudo tar -xzf target/mkosi.tools.${{ matrix.distro }}.tar.gz
+          sudo tar -xzf target/mkosi.output/${{ matrix.arch.name }}-${{ matrix.distro.name }}-tools.tar.gz
 
-      - uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        id: cache-vm
-        with:
-          path: |
-            target/mkosi.output/${{ matrix.distro }}-${{ env.MKOSI_RELEASE }}-vm
-            target/mkosi.output/${{ matrix.distro }}-${{ env.MKOSI_RELEASE }}-vm.initrd
-            target/mkosi.output/${{ matrix.distro }}-${{ env.MKOSI_RELEASE }}-vm.raw
-            target/mkosi.output/${{ matrix.distro }}-${{ env.MKOSI_RELEASE }}-vm.vmlinuz
-            mkosi/vm/mkosi.crt
-            mkosi/vm/mkosi.key
-          key: mkosi-vm-${{ runner.arch }}-${{ matrix.distro }}-${{ matrix.release }}-${{ hashFiles('mkosi/base.conf', 'mkosi/vm/**') }}-${{ hashFiles('target/mkosi.tools.*.tar.gz') }}
+      # with how many images we are building, we'd just hit the 10 GiB cache limit :/
+      # TODO: figure out how to strip images?
+      #- uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+      #  id: cache-vm
+      #  with:
+      #    path: |
+      #      target/mkosi.output/${{ matrix.arch.name }}-${{ matrix.distro.name }}-${{ env.MKOSI_RELEASE }}-vm
+      #      target/mkosi.output/${{ matrix.arch.name }}-${{ matrix.distro.name }}-${{ env.MKOSI_RELEASE }}-vm.initrd
+      #      target/mkosi.output/${{ matrix.arch.name }}-${{ matrix.distro.name }}-${{ env.MKOSI_RELEASE }}-vm.raw
+      #      target/mkosi.output/${{ matrix.arch.name }}-${{ matrix.distro.name }}-${{ env.MKOSI_RELEASE }}-vm.vmlinuz
+      #      mkosi/vm/mkosi.crt
+      #      mkosi/vm/mkosi.key
+      #    key: mkosi-vm-${{ matrix.arch.name }}-${{ matrix.distro.name }}-${{ matrix.distro.release }}-${{ hashFiles('mkosi/base.conf', 'mkosi/vm/**') }}-${{ hashFiles('target/mkosi.output/*-tools.tar.gz') }}
 
       - name: Build VM
-        if: steps.cache-vm.outputs.cache-hit != 'true'
+        # if: steps.cache-vm.outputs.cache-hit != 'true'
         run: |
           set -euo pipefail
           mkosi \
             -C mkosi/vm \
-            --distribution ${{ matrix.distro }} \
+            --distribution ${{ matrix.distro.name }} \
             --release ${MKOSI_RELEASE} \
-            --mirror ${{ matrix.mirror }} \
+            ${MKOSI_MIRROR_ARG} \
             genkey
           mkosi \
             -C mkosi/vm \
-            --distribution ${{ matrix.distro }} \
+            --distribution ${{ matrix.distro.name }} \
             --release ${MKOSI_RELEASE} \
-            --mirror ${{ matrix.mirror }} \
+            ${MKOSI_MIRROR_ARG} \
             build
 
       - name: Generate vmlinux.h
-        timeout-minutes: 5
+        timeout-minutes: 15
         run: |
           set -euo pipefail
           mkdir -p target/bpf_headers
           sudo mkosi \
             -C mkosi/vm \
-            --distribution ${{ matrix.distro }} \
+            --distribution ${{ matrix.distro.name }} \
             --release ${MKOSI_RELEASE} \
-            --mirror ${{ matrix.mirror }} \
+            ${MKOSI_MIRROR_ARG} \
             vm >> vm.log 2>&1 &
           VM_PID=$!
           until sudo mkosi \
             -C mkosi/vm \
-            --distribution ${{ matrix.distro }} \
+            --distribution ${{ matrix.distro.name }} \
             --release ${MKOSI_RELEASE} \
-            --mirror ${{ matrix.mirror }} \
+            ${MKOSI_MIRROR_ARG} \
             ssh -- true; do
             sleep 1
             if ! ps -p ${VM_PID} > /dev/null; then
@@ -159,29 +175,29 @@ jobs:
             fi
           done
           BPFTOOL='bpftool'
-          if [[ ${{ matrix.distro}} == "ubuntu" ]]; then
-            case ${{ matrix.release }} in
+          if [[ ${{ matrix.distro.name }} == "ubuntu" ]]; then
+            case ${{ matrix.distro.release }} in
               "24.04") BPFTOOL='/usr/lib/linux-tools/$(uname -r)/bpftool' ;;
             esac
           fi
           sudo mkosi \
             -C mkosi/vm \
-            --distribution ${{ matrix.distro }} \
+            --distribution ${{ matrix.distro.name }} \
             --release ${MKOSI_RELEASE} \
-            --mirror ${{ matrix.mirror }} \
+            ${MKOSI_MIRROR_ARG} \
             ssh -- "${BPFTOOL} btf dump file /sys/kernel/btf/vmlinux format c" > target/bpf_headers/vmlinux.h
           sudo mkosi \
             -C mkosi/vm \
-            --distribution ${{ matrix.distro }} \
+            --distribution ${{ matrix.distro.name }} \
             --release ${MKOSI_RELEASE} \
-            --mirror ${{ matrix.mirror }} \
+            ${MKOSI_MIRROR_ARG} \
             ssh -- systemctl poweroff || true
           wait ${VM_PID}
 
       - name: Upload vmlinux.h
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: vmlinux-${{ matrix.distro }}-${{ matrix.release }}.h
+          name: vmlinux-${{ matrix.arch.name }}-${{ matrix.distro.name }}-${{ matrix.distro.release }}.h
           path: target/bpf_headers/vmlinux.h
           if-no-files-found: error
 
@@ -190,27 +206,27 @@ jobs:
           set -euo pipefail
           mkosi \
             -C mkosi/runtime \
-            --distribution ${{ matrix.distro }} \
+            --distribution ${{ matrix.distro.name }} \
             --release ${MKOSI_RELEASE} \
-            --mirror ${{ matrix.mirror }} \
+            ${MKOSI_MIRROR_ARG} \
             build
 
       - name: Test attaching
-        timeout-minutes: 5
+        timeout-minutes: 15
         run: |
           set -euo pipefail
           sudo mkosi \
             -C mkosi/vm \
-            --distribution ${{ matrix.distro }} \
+            --distribution ${{ matrix.distro.name }} \
             --release ${MKOSI_RELEASE} \
-            --mirror ${{ matrix.mirror }} \
+            ${MKOSI_MIRROR_ARG} \
             vm >> vm.log 2>&1 &
           VM_PID=$!
           until sudo mkosi \
             -C mkosi/vm \
-            --distribution ${{ matrix.distro }} \
+            --distribution ${{ matrix.distro.name }} \
             --release ${MKOSI_RELEASE} \
-            --mirror ${{ matrix.mirror }} \
+            ${MKOSI_MIRROR_ARG} \
             ssh -- true; do
             sleep 1
             if ! ps -p ${VM_PID} > /dev/null; then
@@ -220,29 +236,29 @@ jobs:
           done
           sudo mkosi \
             -C mkosi/vm \
-            --distribution ${{ matrix.distro }} \
+            --distribution ${{ matrix.distro.name }} \
             --release ${MKOSI_RELEASE} \
-            --mirror ${{ matrix.mirror }} \
-            ssh -- "cat > /usr/local/bin/hpc-ebpf-filter && chmod +x /usr/local/bin/hpc-ebpf-filter" < target/mkosi.output/${{ matrix.distro }}-${MKOSI_RELEASE}-runtime/usr/local/bin/hpc-ebpf-filter
+            ${MKOSI_MIRROR_ARG} \
+            ssh -- "cat > /usr/local/bin/hpc-ebpf-filter && chmod +x /usr/local/bin/hpc-ebpf-filter" < target/mkosi.output/${{ matrix.arch.name }}-${{ matrix.distro.name }}-${MKOSI_RELEASE}-runtime/usr/local/bin/hpc-ebpf-filter
           sudo mkosi \
             -C mkosi/vm \
-            --distribution ${{ matrix.distro }} \
+            --distribution ${{ matrix.distro.name }} \
             --release ${MKOSI_RELEASE} \
-            --mirror ${{ matrix.mirror }} \
+            ${MKOSI_MIRROR_ARG} \
             ssh -- /usr/local/bin/hpc-ebpf-filter --test-attach
           sudo mkosi \
             -C mkosi/vm \
-            --distribution ${{ matrix.distro }} \
+            --distribution ${{ matrix.distro.name }} \
             --release ${MKOSI_RELEASE} \
-            --mirror ${{ matrix.mirror }} \
+            ${MKOSI_MIRROR_ARG} \
             ssh -- systemctl poweroff || true
           wait ${VM_PID}
 
       - name: Upload program
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: ${{ matrix.distro }}-${{ matrix.release }}-hpc-ebpf-filter
-          path: target/mkosi.output/${{ matrix.distro }}-${{ env.MKOSI_RELEASE }}-runtime/usr/local/bin/hpc-ebpf-filter
+          name: ${{ matrix.arch.name }}-${{ matrix.distro.name }}-${{ matrix.distro.release }}-hpc-ebpf-filter
+          path: target/mkosi.output/${{ matrix.arch.name }}-${{ matrix.distro.name }}-${{ env.MKOSI_RELEASE }}-runtime/usr/local/bin/hpc-ebpf-filter
           if-no-files-found: error
 
       - name: Upload logs
@@ -250,18 +266,17 @@ jobs:
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
           path: vm.log
-          name: ${{ matrix.distro }}-${{ matrix.release }}-logs
+          name: ${{ matrix.arch.name }}-${{ matrix.distro.name }}-${{ matrix.distro.release }}-logs
 
       - name: Build container image
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         run: |
           set -euo pipefail
           REPOSITORY=ghcr.io/${{ github.repository }}
           REPOSITORY=${REPOSITORY@L}
           podman build \
-            -t ${REPOSITORY}:${{ matrix.distro }}-${{ matrix.release }} \
+            -t ${REPOSITORY}:${{ matrix.distro.name }}-${{ matrix.distro.release }} \
             -f mkosi/runtime/Containerfile \
-            --build-arg OUTPUT_DIR=${{ matrix.distro }}-${MKOSI_RELEASE}-runtime \
+            --build-arg OUTPUT_DIR=${{ matrix.arch.name }}-${{ matrix.distro.name }}-${MKOSI_RELEASE}-runtime \
             --label "org.opencontainers.image.source=https://github.com/${{ github.repository }}" \
             --label "org.opencontainers.image.url=https://github.com/${{ github.repository }}" \
             --label "org.opencontainers.image.title=hpc-ebpf-filter" \
@@ -270,13 +285,12 @@ jobs:
             --label "org.opencontainers.image.ref.name=${{ github.ref }}" \
             --label "org.opencontainers.image.licenses=GPL-3.0" \
             .
-          podman save --format oci-archive ${REPOSITORY}:${{ matrix.distro }}-${{ matrix.release }} -o target/${{ matrix.distro }}-${{ matrix.release }}-image.tar
+          podman save --format oci-archive ${REPOSITORY}:${{ matrix.distro.name }}-${{ matrix.distro.release }} -o target/${{ matrix.arch.name }}-${{ matrix.distro.name }}-${{ matrix.distro.release }}-image.tar
 
       - name: Upload container image
-        if: ${{ github.event_name == 'push' && github.ref == 'refs/heads/main' }}
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          path: target/${{ matrix.distro }}-${{ matrix.release }}-image.tar
+          path: target/${{ matrix.arch.name }}-${{ matrix.distro.name }}-${{ matrix.distro.release }}-image.tar
           archive: false
 
   push_container_image:
