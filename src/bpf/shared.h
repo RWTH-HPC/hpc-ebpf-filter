@@ -13,6 +13,7 @@ enum Operation : uint8_t {
     SETSOCKOPT,
     NETLINK_SEND,
     PTRACE_DUMPABLE_EXPLOIT,
+    FILE_IOCTL,
 };
 
 // yeah idk, sockaddr_ is a mess
@@ -39,6 +40,10 @@ union OperationDetails {
         enum NetlinkFamily family;
         uint16_t message_type;
     } netlink_send;
+    struct {
+        // raw ioctl command number: _IOC(dir, type, nr, size)
+        uint32_t cmd;
+    } file_ioctl;
 };
 
 struct Event {
