@@ -46,6 +46,7 @@ int BPF_PROG(deny_file_ioctl, struct file *file, unsigned int cmd,
     return filter_ioctl(file, cmd);
 }
 
+#ifndef ROCKY_8
 // 32-bit userspace on a 64-bit kernel routes through the compat path; the
 // command encoding is identical, so apply the same filter.
 SEC("lsm/file_ioctl_compat")
@@ -57,3 +58,4 @@ int BPF_PROG(deny_file_ioctl_compat, struct file *file, unsigned int cmd,
 
     return filter_ioctl(file, cmd);
 }
+#endif
