@@ -9,7 +9,7 @@ anyhow = "1.0.102"
 clap = { version = "4.5.60", features = ["derive"] }
 env_logger = "0.11.9"
 landlock = "0.4.5"
-libbpf-rs = "0.26.1"
+libbpf-rs = "0.27.0"
 libbpf-sys = "1.6.3"
 libc = "0.2.183"
 log = "0.4.30"
